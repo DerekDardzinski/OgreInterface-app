@@ -1,0 +1,48 @@
+{
+  "name": "ogreinterface-app",
+  "productName": "ogreinterface-app",
+  "version": "1.0.0",
+  "description": "My Electron application description",
+  "main": ".vite/build/main.js",
+  "scripts": {
+    "start": "electron-forge start",
+    "package": "electron-forge package",
+    "make": "electron-forge make",
+    "publish": "electron-forge publish",
+    "lint": "echo \"No linting configured\""
+  },
+  "keywords": [],
+  "author": {
+    "name": "Derek Dardzinski",
+    "email": "dardzinski.derek@gmail.com"
+  },
+  "license": "MIT",
+  "devDependencies": {
+    "@electron-forge/cli": "^6.4.2",
+    "@electron-forge/maker-deb": "^6.4.2",
+    "@electron-forge/maker-rpm": "^6.4.2",
+    "@electron-forge/maker-squirrel": "^6.4.2",
+    "@electron-forge/maker-zip": "^6.4.2",
+    "@electron-forge/plugin-auto-unpack-natives": "^6.4.2",
+    "@electron-forge/plugin-vite": "^6.4.2",
+    "@vitejs/plugin-react": "^4.1.0",
+    "autoprefixer": "^10.4.16",
+    "daisyui": "latest",
+    "electron": "27.0.2",
+    "postcss": "^8.4.31",
+    "tailwind-scrollbar": "^3.0.5",
+    "tailwindcss": "^3.3.5"
+  },
+  "dependencies": {
+    "@react-three/drei": "^9.88.7",
+    "@react-three/fiber": "^8.15.7",
+    "deasync": "^0.1.29",
+    "electron-squirrel-startup": "^1.0.0",
+    "get-port": "^7.0.0",
+    "portfinder": "^1.0.32",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "three": "^0.157.0",
+    "tree-kill": "^1.2.2"
+  }
+}

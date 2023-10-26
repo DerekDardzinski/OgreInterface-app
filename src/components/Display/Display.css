@@ -1,0 +1,9 @@
+.Display {
+    height: 1000px;
+    width: 1000px;
+    padding: 0;
+    /* margin-left: 80px; */
+    display: flex;
+    background-color: red;
+  }
+  
