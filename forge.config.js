@@ -31,7 +31,8 @@ module.exports = {
           owner: 'DerekDardzinski',
           name: 'OgreInterface-app'
         },
-        prerelease: true
+        prerelease: true,
+        draft: true,
       }
     }
   ],
