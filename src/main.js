@@ -45,7 +45,7 @@ const createWindow = () => {
 
   if (app.isPackaged) {
     const runFlask = {
-      darwin: `open -g "${path.join(process.resourcesPath, 'resources', 'app.app')}"`,
+      darwin: `${path.join(process.resourcesPath, "app", "app")}`,
       linux: `${path.join(process.resourcesPath, "app", "app")}`,
       win32: `start ${path.join(process.resourcesPath, "app", "app.exe")}`,
     }[process.platform];
