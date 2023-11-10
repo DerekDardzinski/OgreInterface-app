@@ -10,17 +10,18 @@ import ThemeSelector from "./components/ThemeSelector/ThemeSelector.jsx";
 function App() {
 	const [substrateData, setSubstrateData] = useState("");
 	const [filmData, setFilmData] = useState("");
-	// console.log(process)
+	const [millerData, setMillerData] = useState([]);
 
 	return (
 		<AppContext.Provider
 			value={{
 				film: [filmData, setFilmData],
 				substrate: [substrateData, setSubstrateData],
+				millerScan: [millerData, setMillerData],
 			}}
 		>
 			<div className='bg-base-100 w-screen h-full min-h-screen'>
-				<div className="fixed ml-3 mt-3">
+				<div className="fixed ml-3 mt-3 z-50">
 				<ThemeSelector/>
 				</div>
 				<div className='flex items-top justify-center'>
@@ -28,7 +29,7 @@ function App() {
 						<div className='md:col-span-2'>
 							<BaseCard>
 								<div className='flex justify-center items-center text-2xl font-bold'>
-									Welcome to the OgreInterface Web Application
+									Welcome to the OgreInterface App
 								</div>
 							</BaseCard>
 						</div>

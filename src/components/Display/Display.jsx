@@ -16,10 +16,10 @@ function Display(props) {
 	const lightRef2 = useRef();
 
 	return (
-		<div ref={dispRef} className='w-[100%] h-[100%] bg-base-100'>
+		<div ref={dispRef} className='w-[100%] h-[100%] bg-white'>
 			<Canvas
-				gl={{ preserveDrawingBuffer: true }}
-				dpr={1}
+				gl={{ preserveDrawingBuffer: false }}
+				// dpr={1}
 				orthographic={true}
 			>
 				<Bounds fit clip margin={1.4}>

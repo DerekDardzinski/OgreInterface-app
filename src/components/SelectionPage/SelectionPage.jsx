@@ -53,8 +53,7 @@ function SelectionPage() {
 				</div>
 			</BaseCard>
 		</div>
-        {pageToDisplay
-        }
+        {pageToDisplay}
         </>
 	);
 }

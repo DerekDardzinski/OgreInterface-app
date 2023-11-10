@@ -26,6 +26,7 @@
     "@electron-forge/plugin-auto-unpack-natives": "^6.4.2",
     "@electron-forge/plugin-vite": "^6.4.2",
     "@electron-forge/publisher-github": "^6.4.2",
+    "@tailwindcss/typography": "^0.5.10",
     "@vitejs/plugin-react": "^4.1.0",
     "autoprefixer": "^10.4.16",
     "daisyui": "latest",
@@ -43,6 +44,7 @@
     "portfinder": "^1.0.32",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
+    "react-uuid": "^2.0.0",
     "three": "^0.157.0",
     "tree-kill": "^1.2.2"
   }

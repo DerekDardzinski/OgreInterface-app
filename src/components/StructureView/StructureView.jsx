@@ -16,6 +16,7 @@ import { GizmoHelper } from "../BasisVectors/GizmoHelper.jsx";
 import { SpotLight, Stage } from "@react-three/drei";
 import { invalidate, useFrame, useThree } from "@react-three/fiber";
 import * as THREE from "three";
+import uuid from 'react-uuid'; 
 // import { get, post } from "../../utils/requests.js";
 
 // Electron Inter Process Communication and dialog
@@ -23,8 +24,8 @@ import * as THREE from "three";
 // import { IpcRenderer } from "electron";
 
 // Dynamically generated TCP (open) port between 3000-3999
-const {ipcRenderer} = window;
-const port = ipcRenderer.sendSync('get-port-number');
+const { ipcRenderer } = window;
+const port = ipcRenderer.sendSync("get-port-number");
 
 function CameraRig(props) {
 	const currentView = props.view;
@@ -50,8 +51,42 @@ function CameraRig(props) {
 	});
 }
 
+function ScreenShot(props) {
+	const { gl, scene, camera } = useThree();
+	if (props.takeScreenShot) {
+		gl.render(scene, camera);
+		const screenshot = gl.domElement.toDataURL();
+		const createE1 = document.createElement('a');
+		createE1.href = screenshot;
+		createE1.download = "structure_view"
+		createE1.click();
+		createE1.remove();
+		props.setTakeScreenShot(false);
+		invalidate();
+	}
+}
+
+function Button(props) {
+	const btnClassName =
+		"btn btn-neutral focus:btn-accent rounded-2xl w-[100%] h-[100%]";
+	const divClassName = "aspect-square";
+
+	return (
+		<div className={divClassName}>
+			<button
+				onClick={() => {
+					props.setAnimateView({ view: props.label, animate: true });
+				}}
+				className={btnClassName}
+			>
+				{props.label}
+			</button>
+		</div>
+	);
+}
+
 function StructureView(props) {
-	const structureData = props.structureData;
+	// const structureData = props.structureData;
 	const [atoms, setAtoms] = useState([]);
 	const [bonds, setBonds] = useState([]);
 	const [unitCell, setUnitCell] = useState([]);
@@ -91,43 +126,29 @@ function StructureView(props) {
 		view: "a",
 		animate: false,
 	});
-	// const [animate, setAnimate] = useState(false);
+	const [takeScreenShot, setTakeScreenShot] = useState(false);
 
 	useEffect(() => {
-		// post(structureData.data, "api/structure_to_three", (data) => {
-		// 	console.log("SETTING DATA");
-		// 	setAtoms(data.atoms.map((props, i) => <Atom key={i} {...props} />));
-		// 	setBonds(data.bonds.map((props, i) => <Bond key={i} {...props} />));
-		// 	setUnitCell(
-		// 		data.unitCell.map((props, i) => <UnitCell key={0} {...props} />)
-		// 	);
-		// 	setCenterShift(data.centerShift);
-		// 	setBasis(data.basis);
-		// 	setViewData(data.viewData);
-		// });
 		fetch(`http://localhost:${port}/api/structure_to_three`, {
 			method: "POST",
-			body: structureData.structure,
-			// mode: 'no-cors',
+			body: props.structureData.structure,
 		})
 			.then((res) => {
-				console.log("POSTING DATA");
 				if (!res.ok) {
 					throw new Error("Bad Response");
 				}
 				return res.json();
 			})
 			.then((data) => {
-				console.log("SETTING DATA");
 				setAtoms(
-					data.atoms.map((props, i) => <Atom key={i} {...props} />)
+					data.atoms.map((props, i) => <Atom key={uuid()} {...props} />)
 				);
 				setBonds(
-					data.bonds.map((props, i) => <Bond key={i} {...props} />)
+					data.bonds.map((props, i) => <Bond key={uuid()} {...props} />)
 				);
 				setUnitCell(
 					data.unitCell.map((props, i) => (
-						<UnitCell key={0} {...props} />
+						<UnitCell key={uuid()} {...props} />
 					))
 				);
 				setCenterShift(data.centerShift);
@@ -137,7 +158,7 @@ function StructureView(props) {
 			.catch((err) => {
 				console.error(err);
 			});
-	}, [structureData]);
+	}, [props.structureData]);
 
 	let toshow;
 	if (atoms.length > 0) {
@@ -151,7 +172,6 @@ function StructureView(props) {
 
 				<GizmoHelper alignment='bottom-left' margin={[60, 60]}>
 					<ambientLight intensity={2.0} />
-					{/* <pointLight position={[0, 0, 0]} intensity={10000} /> */}
 					<BasisVectors
 						basis={basis}
 						axisColors={["red", "green", "blue"]}
@@ -164,86 +184,70 @@ function StructureView(props) {
 					viewData={viewData}
 					animate={animateView.animate}
 				/>
+				<ScreenShot
+					takeScreenShot={takeScreenShot}
+					setTakeScreenShot={setTakeScreenShot}
+				/>
 			</Display>
 		);
 	} else {
 		toshow = <></>;
 	}
 
-	const btnClassName = 'btn btn-square btn-neutral focus:btn-accent rounded-2xl'
-
 	const bottomButtons = (
-		<div className='grid flex-auto grid-cols-6 justify-center items-left my-4 mx-12 gap-4'>
-			<button
-				onClick={() => {
-					setAnimateView({ view: "a", animate: true });
-				}}
-				className={btnClassName}
-			>
-				a
-			</button>
-			<button
-				onClick={() => {
-					setAnimateView({ view: "b", animate: true });
-				}}
-				className={btnClassName}
-			>
-				b
-			</button>
-			<button
-				onClick={() => {
-					setAnimateView({ view: "c", animate: true });
-				}}
-				className={btnClassName}
-			>
-				c
-			</button>
-			<button
-				onClick={() => {
-					setAnimateView({ view: "a*", animate: true });
-				}}
-				className={btnClassName}
-			>
-				a*
-			</button>
-			<button
-				onClick={() => {
-					setAnimateView({ view: "b*", animate: true });
-				}}
-				className={btnClassName}
-			>
-				b*
-			</button>
-			<button
-				onClick={() => {
-					setAnimateView({ view: "c*", animate: true });
-				}}
-				className={btnClassName}
-			>
-				c*
-			</button>
+		<div className='grid grid-cols-6 flex-auto justify-center items-center my-4 mx-12 gap-2'>
+			<Button label={"a"} setAnimateView={setAnimateView} />
+			<Button label={"b"} setAnimateView={setAnimateView} />
+			<Button label={"c"} setAnimateView={setAnimateView} />
+			<Button label={"a*"} setAnimateView={setAnimateView} />
+			<Button label={"b*"} setAnimateView={setAnimateView} />
+			<Button label={"c*"} setAnimateView={setAnimateView} />
 		</div>
 	);
 
 	let labelElements = [];
-	structureData.labelData.forEach((v) => {
-		console.log(v);
-		labelElements.push(createElement(v[0], v[1], v[2]));
+	props.structureData.labelData.forEach((v) => {
+		const props = {key: uuid(), ...v[1]}
+		labelElements.push(createElement(v[0], props, v[2]));
 	});
-	console.log(labelElements);
-	// console.log(textElements)
-	// const testList = [createElement('p', {"className": "overline"}, '4'), createElement('p', {"className": "underline"}, '4')]
+
 	const label = createElement(
 		"span",
-		{ className: "inline-block" },
+		{ className: "inline-block w-[100%] text-center" },
 		labelElements
+	);
+
+	const topRow = (
+		<div className='grid grid-cols-6 flex-auto justify-center items-center gap-4 mx-4'>
+			<div className='col-span-5 flex-auto justify-center items-center'>
+				{label}
+			</div>
+			<div className='col-span-1'>
+				<button
+					onClick={() => {
+						setTakeScreenShot(true);
+					}}
+					className='btn btn-neutral btn-outline focus:btn-accent focus:btn-outline rounded-2xl w-[100%] h-[70%]'
+				>
+					<svg
+						xmlns='http://www.w3.org/2000/svg'
+						width='24'
+						height='24'
+						fill='currentColor'
+						className=''
+						viewBox='0 0 16 16'
+					>
+						<path d='M10.5 8.5a2.5 2.5 0 1 1-5 0 2.5 2.5 0 0 1 5 0z' />
+						<path d='M2 4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2h-1.172a2 2 0 0 1-1.414-.586l-.828-.828A2 2 0 0 0 9.172 2H6.828a2 2 0 0 0-1.414.586l-.828.828A2 2 0 0 1 3.172 4H2zm.5 2a.5.5 0 1 1 0-1 .5.5 0 0 1 0 1zm9 2.5a3.5 3.5 0 1 1-7 0 3.5 3.5 0 0 1 7 0z' />
+					</svg>
+				</button>
+			</div>
+		</div>
 	);
 
 	return (
 		<DisplayCard
-			// topContents={props.label + ": " + structureData.formula + "   (" + structureData.spacegroup + ")" + test}
-			// topContents={(<><p>(F</p><p className="overline">4</p><p>3</p><p>m)</p></>)}
-			topContents={label}
+			topContents={topRow}
 			bottomContents={bottomButtons}
 		>
 			{toshow}

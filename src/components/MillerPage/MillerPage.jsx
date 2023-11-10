@@ -1,126 +1,213 @@
-import React, { useContext } from "react";
+import React, { useContext, useState, createElement } from "react";
 import BaseCard from "../BaseCard/BaseCard.jsx";
 import AppContext from "../AppContext/AppContext.jsx";
+import uuid from 'react-uuid'; 
+
+const { ipcRenderer } = window;
+const port = ipcRenderer.sendSync("get-port-number");
+
+function MillerRow(props) {
+	const filmMiller = props.data.filmMillerIndex;
+	const substrateMiller = props.data.substrateMillerIndex;
+	const area = props.data.matchArea;
+	const relativeArea = props.data.matchRelativeArea;
+	const strain = props.data.matchStrain;
+	const imgData = props.data.matchPlot;
+
+	let filmLabelElements = [];
+	filmMiller.forEach((v) => {
+		const props = {key: uuid(), ...v[1]};
+		filmLabelElements.push(createElement(v[0], props, v[2]));
+	});
+
+	const filmLabel = createElement(
+		"span",
+		{ className: "inline-block w-[100%] text-center" },
+		filmLabelElements
+	);
+
+	let substrateLabelElements = [];
+	substrateMiller.forEach((v) => {
+		const props = {key: uuid(), ...v[1]};
+		substrateLabelElements.push(createElement(v[0], props, v[2]));
+	});
+
+	const substrateLabel = createElement(
+		"span",
+		{ className: "inline-block w-[100%] text-center" },
+		substrateLabelElements
+	);
+
+	const rowID = "miller_popup_" + uuid();
+
+	return (
+		<tr>
+			<th>
+				<button
+					className='btn btn-sm btn-secondary'
+					onClick={() => document.getElementById(rowID).showModal()}
+				>
+					View
+				</button>
+				<dialog id={rowID} className='modal'>
+					<div className='bg-white modal-box max-w-2xl flex justify-center items-center'>
+						<form method='dialog'>
+							<button className='btn btn-sm btn-circle btn-ghost absolute right-2 top-2'>
+								✕
+							</button>
+						</form>
+						<img src={"data:image/png;base64," + imgData} />
+					</div>
+				</dialog>
+			</th>
+			<td>{filmLabel}</td>
+			<td>{substrateLabel}</td>
+			<td>{strain}</td>
+			<td>{area}</td>
+			<td>{relativeArea}</td>
+		</tr>
+	);
+}
 
 function MillerPage() {
-  const {film, substrate} = useContext(AppContext)
-  const [filmData, setFilmData] = film
-  const [substrateData, setSubstrateData] = substrate
-  console.log(filmData)
-  console.log(substrateData)
+	const { film, substrate, millerScan } = useContext(AppContext);
+	const [filmData, setFilmData] = film;
+	const [substrateData, setSubstrateData] = substrate;
+	const [millerData, setMillerData] = millerScan;
 
-
-  function handleSubmit(e) {
+	function handleSubmit(e) {
 		// Prevent the browser from reloading the page
 		e.preventDefault();
 
 		// Read the form data
 		const form = e.target;
 		const fd = new FormData(form);
-    fd.append("filmStructure", filmData.structure)
-    fd.append("substrateStructure", substrateData.structure)
+		fd.append("filmStructure", filmData.structure);
+		fd.append("substrateStructure", substrateData.structure);
 
 		// You can pass formData as a fetch body directly:
-    fetch("/api/miller_scan", {
+		fetch(`http://localhost:${port}/api/miller_scan`, {
 			method: "POST",
 			body: fd,
 		})
 			.then((res) => {
-				console.log("Uploading DATA");
 				if (!res.ok) {
 					throw new Error("Bad Response");
 				}
 				return res.json();
 			})
-			.then((data) => console.log(data))
+			.then((data) => {
+				setMillerData(data["matchData"]);
+			})
 			.catch((err) => {
 				console.error(err);
 			});
-
-		// Or you can work with it as a plain object:
-		// const formJson = Object.fromEntries(formData.entries());
-		// console.log(formJson);
 	}
 
-	const textClassName = "input input-sm input-bordered input-base-content"
+	const tableRows = [];
+
+	if (millerData.length > 0) {
+		millerData.forEach((rowData, index) => {
+			tableRows.push(
+				<MillerRow
+					data={rowData}
+					key={uuid()}
+				/>
+			);
+		});
+	}
+
+	const textClassName = "input input-sm input-bordered input-base-content";
 
 	return (
-		<div className="md:col-span-2">
-			<BaseCard>
-				<form method='POST' onSubmit={handleSubmit}>
-					<div className='grid flex-auto grid-cols-2 gap-4'>
-          <div>
-							<label className='text-lg font-medium mb-1'>
-								Max Film Miller Index:
-							</label>
-							<br></br>
-							<input
-								type='text'
-								id='maxFilmMiller'
-								name='maxFilmMiller'
-								placeholder='2'
-								className={textClassName}
-								// className="input input-sm input-bordered input-secondary"
-								// className='placeholder-gray-300 mr-3 border border-gray-300 rounded-md pl-2'
-							/>
+		<>
+			<div className='md:col-span-2'>
+				<BaseCard>
+					<form method='POST' onSubmit={handleSubmit}>
+						<div className='grid flex-auto grid-cols-2 gap-4'>
+							<div>
+								<label className='text-lg font-medium mb-1'>
+									Max Film Miller Index:
+								</label>
+								<br></br>
+								<input
+									type='text'
+									id='maxFilmMiller'
+									name='maxFilmMiller'
+									placeholder='2'
+									className={textClassName}
+								/>
+							</div>
+							<div>
+								<label className='text-lg font-medium mb-1'>
+									Max Substrate Miller Index:
+								</label>
+								<br></br>
+								<input
+									type='text'
+									id='maxSubstrateMiller'
+									name='maxSubstrateMiller'
+									placeholder='2'
+									className={textClassName}
+								/>
+							</div>
+							<div>
+								<label className='text-lg font-medium mb-1'>
+									Max Interface Area (optional):
+								</label>
+								<br></br>
+								<input
+									type='text'
+									id='maxArea'
+									name='maxArea'
+									placeholder='200'
+									className={textClassName}
+								/>
+							</div>
+							<div>
+								<label className='text-lg font-medium mb-1'>
+									Max Interface Strain:
+								</label>
+								<br></br>
+								<input
+									type='text'
+									id='maxStrain'
+									name='maxStrain'
+									placeholder='0.05'
+									className={textClassName}
+								/>
+							</div>
 						</div>
-						<div>
-							<label className='text-lg font-medium mb-1'>
-								Max Substrate Miller Index:
-							</label>
-							<br></br>
-							<input
-								type='text'
-								id='maxSubstrateMiller'
-								name='maxSubstrateMiller'
-								placeholder='2'
-								className={textClassName}
-								// className="input input-sm input-bordered input-secondary"
-								// className='placeholder-gray-300 mr-3 border border-gray-300 rounded-md pl-2'
-							/>
-						</div>
-						<div>
-							<label className='text-lg font-medium mb-1'>
-								Max Interface Area (optional):
-							</label>
-							<br></br>
-							<input
-								type='text'
-								id='maxArea'
-								name='maxArea'
-								placeholder='200'
-								className={textClassName}
-								// className="input input-sm input-bordered input-secondary"
-								// className='placeholder-gray-300 mr-3 border border-gray-300 rounded-md pl-2'
-							/>
-						</div>
-						<div>
-							<label className='text-lg font-medium mb-1'>
-								Max Interface Strain:
-							</label>
-							<br></br>
-							<input
-								type='text'
-								id='maxStrain'
-								name='maxStrain'
-								placeholder='0.05'
-								className={textClassName}
-								// className="input input-sm input-bordered input-secondary"
-								// className='placeholder-gray-300 mr-3 border border-gray-300 rounded-md pl-2'
-							/>
-						</div>
+						<br></br>
+						<button
+							type='submit'
+							className='btn btn-secondary'
+						>
+							Run Miller Index Scan
+						</button>
+					</form>
+				</BaseCard>
+			</div>
+			<div className='md:col-span-2'>
+				<BaseCard>
+					<div className='overflow-x-auto h-60 scrollbar scrollbar-w-2 scrollbar-h-2 scrollbar-thumb-rounded-full scrollbar-thumb-accent'>
+						<table className='table table-pin-rows table-pin-cols text-lg text-center'>
+							<thead className="text-lg">
+								<tr>
+									<th></th>
+									<td>Film Miller Index</td>
+									<td>Substrate Miller Index</td>
+									<td>Strain (%)</td>
+									<td><span>A<sub>Iface</sub> (<span>&#8491;</span><sup>2</sup>)</span></td>
+									<td><span>A<sub>Iface</sub>/(A<sub>Film</sub> <span>&#183;</span> A<sub>Sub</sub>)<sup>1/2</sup></span></td>
+								</tr>
+							</thead>
+							<tbody>{tableRows}</tbody>
+						</table>
 					</div>
-					<br></br>
-					<button
-						type='submit'
-						className="btn btn-secondary"
-						// className='inline-flex items-center px-3 py-2 text-md font-medium text-center text-white rounded-lg bg-button hover:bg-buttonhover focus:ring-4 focus:outline-none focus:ring-blue-300'
-					>
-						Run Miller Index Scan
-					</button>
-				</form>
-			</BaseCard>
-		</div>
+				</BaseCard>
+			</div>
+		</>
 	);
 }
 

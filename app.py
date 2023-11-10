@@ -3,6 +3,10 @@ import typing as tp
 import itertools
 import copy
 import json
+import io
+import base64
+from multiprocessing import Pool, cpu_count
+import time
 
 from flask import Flask, jsonify, request
 from flask_cors import CORS, cross_origin
@@ -15,11 +19,19 @@ from pymatgen.symmetry.analyzer import SpacegroupAnalyzer
 from ase.data import chemical_symbols
 from matplotlib.colors import to_hex
 import numpy as np
+import matplotlib
+
+matplotlib.use("agg")
+
 # import pyvista as pv
 
 from OgreInterface.plotting_tools.colors import vesta_colors
-from OgreInterface.miller import MillerSearch
+
+# from OgreInterface.miller import MillerSearch
+from OgreInterface.surfaces import OrientedBulk
+from OgreInterface.lattice_match import ZurMcGill
 from OgreInterface import utils as ogre_utils
+from OgreInterface.plotting_tools import plot_match
 
 app = Flask(__name__)
 app_config = {"host": "0.0.0.0", "port": sys.argv[1]}
@@ -30,17 +42,17 @@ app_config = {"host": "0.0.0.0", "port": sys.argv[1]}
 """
 # Developer mode uses app.py
 if "app.py" in sys.argv[0]:
-  # Update app config
-  app_config["debug"] = True
+    # Update app config
+    app_config["debug"] = True
 
-  # CORS settings
-  cors = CORS(
-    app,
-    resources={r"/*": {"origins": "http://localhost*"}},
-  )
+    # CORS settings
+    cors = CORS(
+        app,
+        resources={r"/*": {"origins": "http://localhost*"}},
+    )
 
-  # CORS headers
-  app.config["CORS_HEADERS"] = "Content-Type"
+    # CORS headers
+    app.config["CORS_HEADERS"] = "Content-Type"
 
 """
 --------------------------- UTILS -----------------------------  
@@ -82,6 +94,28 @@ def _get_formatted_spacegroup(spacegroup: str) -> str:
             i += 1
 
     return formatted_spacegroup
+
+
+def _get_formatted_miller_index(miller_index: str) -> str:
+    formatted_miller_index = [
+        ["span", {}, "("],
+    ]
+
+    i = 0
+    while i < len(miller_index):
+        s = miller_index[i]
+        if s == "-":
+            data = ["span", {"className": "overline"}, miller_index[i + 1]]
+            formatted_miller_index.append(data)
+            i += 2
+        else:
+            data = ["span", {}, miller_index[i]]
+            formatted_miller_index.append(data)
+            i += 1
+
+    formatted_miller_index.append(["span", {}, ")"])
+
+    return formatted_miller_index
 
 
 def _get_bond_info(
@@ -408,6 +442,122 @@ def _get_threejs_data(data_dict):
     }
 
 
+def _single_miller_scan(
+    substrate: Structure,
+    film: Structure,
+    substrate_index: tp.List[int],
+    film_index: tp.List[int],
+    max_area: tp.Optional[float],
+    max_strain: float,
+) -> None:
+    sub_obs = OrientedBulk(
+        bulk=substrate,
+        miller_index=substrate_index,
+        make_planar=True,
+    )
+    sub_inplane_vectors = sub_obs.inplane_vectors
+    sub_basis = sub_obs.crystallographic_basis
+    sub_area = sub_obs.area
+
+    film_obs = OrientedBulk(
+        bulk=film,
+        miller_index=film_index,
+        make_planar=True,
+    )
+    film_inplane_vectors = film_obs.inplane_vectors
+    film_basis = film_obs.crystallographic_basis
+    film_area = film_obs.area
+
+    zm = ZurMcGill(
+        film_vectors=film_inplane_vectors,
+        substrate_vectors=sub_inplane_vectors,
+        film_basis=film_basis,
+        substrate_basis=sub_basis,
+        max_area=max_area,
+        max_strain=max_strain,
+        max_area_mismatch=None,
+        max_area_scale_factor=4.1,
+    )
+    matches = zm.run()
+
+    if len(matches) > 0:
+        best_match = matches[0]
+        stream = io.BytesIO()
+        plot_match(match=best_match, output=stream, dpi=100)
+        base64_stream = base64.b64encode(stream.getvalue()).decode()
+        stream.close()
+        sub_miller_str = "".join(
+            [str(i) for i in substrate_index.astype(int).tolist()]
+        )
+        film_miller_str = "".join(
+            [str(i) for i in film_index.astype(int).tolist()]
+        )
+        formatted_sub_miller = _get_formatted_miller_index(sub_miller_str)
+        formatted_film_miller = _get_formatted_miller_index(film_miller_str)
+
+        match_data = {
+            "filmMillerIndex": formatted_film_miller,
+            "substrateMillerIndex": formatted_sub_miller,
+            "matchArea": round(float(best_match.area)),
+            "matchRelativeArea": round(
+                float(best_match.area / np.sqrt(sub_area * film_area)),
+                3,
+            ),
+            "matchStrain": round(float(100 * best_match.strain), 3),
+            "matchPlot": base64_stream,
+        }
+
+        return match_data
+    else:
+        return {}
+
+
+def _run_miller_scan_parallel(
+    film_bulk,
+    substrate_bulk,
+    max_film_miller_index: int,
+    max_substrate_miller_index: int,
+    max_area: float,
+    max_strain: float,
+) -> tp.List[tp.Dict[str, tp.Union[tp.List[int], float]]]:
+    film_structure = Structure.from_dict(film_bulk)
+    substrate_structure = Structure.from_dict(substrate_bulk)
+
+    film_miller_indices = ogre_utils.get_unique_miller_indices(
+        structure=film_structure,
+        max_index=max_film_miller_index,
+    )
+
+    substrate_miller_indices = ogre_utils.get_unique_miller_indices(
+        structure=substrate_structure,
+        max_index=max_substrate_miller_index,
+    )
+
+    match_list = []
+    inds = itertools.product(substrate_miller_indices, film_miller_indices)
+    par_sub_inds, par_film_inds = list(zip(*inds))
+    inputs = zip(
+        itertools.repeat(substrate_structure),
+        itertools.repeat(film_structure),
+        par_sub_inds,
+        par_film_inds,
+        itertools.repeat(max_area),
+        itertools.repeat(max_strain),
+    )
+
+    with Pool(processes=cpu_count()) as p:
+        matches = p.starmap(_single_miller_scan, inputs)
+
+    for match in matches:
+        if len(match) > 0:
+            match_list.append(match)
+
+    if len(match_list) > 1:
+        match_list.sort(key=lambda x: (x["matchStrain"], x["matchArea"]))
+
+    return match_list
+
+
 def _run_miller_scan(
     film_bulk,
     substrate_bulk,
@@ -415,29 +565,113 @@ def _run_miller_scan(
     max_substrate_miller_index: int,
     max_area: float,
     max_strain: float,
-) -> tp.Dict:
+) -> tp.List[tp.Dict[str, tp.Union[tp.List[int], float]]]:
     film_structure = Structure.from_dict(film_bulk)
     substrate_structure = Structure.from_dict(substrate_bulk)
 
-    print(film_structure)
-    print(substrate_structure)
+    film_miller_indices = ogre_utils.get_unique_miller_indices(
+        structure=film_structure,
+        max_index=max_film_miller_index,
+    )
+
+    substrate_miller_indices = ogre_utils.get_unique_miller_indices(
+        structure=substrate_structure,
+        max_index=max_substrate_miller_index,
+    )
+
+    match_list = []
+
+    for i, sub_ind in enumerate(substrate_miller_indices):
+        for j, film_ind in enumerate(film_miller_indices):
+            print(sub_ind, film_ind)
+            sub_obs = OrientedBulk(
+                bulk=substrate_structure,
+                miller_index=sub_ind,
+                make_planar=True,
+            )
+            sub_inplane_vectors = sub_obs.inplane_vectors
+            sub_basis = sub_obs.crystallographic_basis
+            sub_area = sub_obs.area
+
+            film_obs = OrientedBulk(
+                bulk=film_structure,
+                miller_index=film_ind,
+                make_planar=True,
+            )
+            film_inplane_vectors = film_obs.inplane_vectors
+            film_basis = film_obs.crystallographic_basis
+            film_area = film_obs.area
+
+            zm = ZurMcGill(
+                film_vectors=film_inplane_vectors,
+                substrate_vectors=sub_inplane_vectors,
+                film_basis=film_basis,
+                substrate_basis=sub_basis,
+                max_area=max_area,
+                max_strain=max_strain,
+                max_area_mismatch=None,
+                max_area_scale_factor=4.1,
+            )
+            matches = zm.run()
+
+            if len(matches) > 0:
+                best_match = matches[0]
+                stream = io.BytesIO()
+                plot_match(match=best_match, output=stream)
+                base64_stream = base64.b64encode(stream.getvalue()).decode()
+                stream.close()
+                print(
+                    len(base64_stream), base64_stream[:20], base64_stream[-20:]
+                )
+                sub_miller_str = "".join(
+                    [str(i) for i in sub_ind.astype(int).tolist()]
+                )
+                film_miller_str = "".join(
+                    [str(i) for i in film_ind.astype(int).tolist()]
+                )
+                formatted_sub_miller = _get_formatted_miller_index(
+                    sub_miller_str
+                )
+                formatted_film_miller = _get_formatted_miller_index(
+                    film_miller_str
+                )
+
+                match_data = {
+                    "filmMillerIndex": formatted_film_miller,
+                    "substrateMillerIndex": formatted_sub_miller,
+                    "matchArea": round(
+                        float(best_match.area / np.sqrt(sub_area * film_area)),
+                        3,
+                    ),
+                    "matchStrain": round(float(best_match.strain), 3),
+                    "matchPlot": base64_stream,
+                }
+                match_list.append(match_data)
+
+    if len(match_list) > 1:
+        match_list.sort(key=lambda x: (x["matchStrain"], x["matchArea"]))
+
+    return match_list
+
 
 """
 --------------------------- REST CALLS -----------------------------
 """
+
+
 # Remove and replace with your own
 @app.route("/example")
 # @cross_origin(supports_credentials=False)
 def example():
-
-  # See /src/components/App.js for frontend call
-  return jsonify("Example response from Flask! Learn more in /app.py & /src/components/App.js")
+    # See /src/components/App.js for frontend call
+    return jsonify(
+        "Example response from Flask! Learn more in /app.py & /src/components/App.js"
+    )
 
 
 @app.route("/api/structure_upload", methods=["POST"])
 @cross_origin(supports_credentials=False)
 def substrate_file_upload():
-    print(request.files)
     film_file = request.files["filmFile"]
     substrate_file = request.files["substrateFile"]
     film_file.headers.add("Access-Control-Allow-Origin", "*")
@@ -506,46 +740,49 @@ def convert_structure_to_three():
 @cross_origin()
 def miller_scan():
     data = request.form
-    max_film_miller = data["maxFilmMiller"]
-    max_substrate_miller = data["maxSubstrateMiller"]
+    max_film_miller = int(data["maxFilmMiller"].strip())
+    max_substrate_miller = int(data["maxSubstrateMiller"].strip())
     _max_area = data["maxArea"]
 
     if _max_area == "":
         max_area = None
     else:
-        max_area = float(max_area.strip())
+        max_area = float(_max_area.strip())
 
-    max_strain = data["maxStrain"]
+    max_strain = float(data["maxStrain"].strip())
     substrate_structure_dict = json.loads(data["substrateStructure"])
     film_structure_dict = json.loads(data["filmStructure"])
 
-    _run_miller_scan(
+    s = time.time()
+    match_list = _run_miller_scan_parallel(
         film_bulk=film_structure_dict,
         substrate_bulk=substrate_structure_dict,
-        max_film_miller_index=int(max_film_miller.strip()),
-        max_substrate_miller_index=int(max_substrate_miller.strip()),
+        max_film_miller_index=max_film_miller,
+        max_substrate_miller_index=max_substrate_miller,
         max_area=max_area,
-        max_strain=float(max_strain.strip()),
+        max_strain=max_strain,
     )
+    print("TOTAL TIME =", time.time() - s)
 
-    return jsonify({"test": "test"})
-
-
+    return jsonify({"matchData": match_list})
 
 
 """
 -------------------------- APP SERVICES ----------------------------
 """
+
+
 # Quits Flask on Electron exit
 @app.route("/quit")
 def quit():
-  shutdown = request.environ.get("werkzeug.server.shutdown")
-  print("SHUTTING DOWN")
-  shutdown()
+    shutdown = request.environ.get("werkzeug.server.shutdown")
+    print("SHUTTING DOWN")
+    shutdown()
 
-  return
+    return
 
 
 if __name__ == "__main__":
-  import time
-  app.run(**app_config)
+    import time
+
+    app.run(**app_config)
