@@ -754,7 +754,7 @@ def miller_scan():
     film_structure_dict = json.loads(data["filmStructure"])
 
     s = time.time()
-    match_list = _run_miller_scan_parallel(
+    match_list = _run_miller_scan(
         film_bulk=film_structure_dict,
         substrate_bulk=substrate_structure_dict,
         max_film_miller_index=max_film_miller,
@@ -782,6 +782,16 @@ def quit():
     return
 
 
+def _run_func(x):
+    return x**2
+
+
 if __name__ == "__main__":
-    freeze_support()
+    # # freeze_support()
+    # with Pool(cpu_count()) as pool:
+    #     inputs = range(10)
+    #     outputs = pool.map(_run_func, inputs)
+
+    # print(outputs)
+
     app.run(**app_config)
