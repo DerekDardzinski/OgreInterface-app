@@ -783,21 +783,8 @@ def quit():
 
 
 if __name__ == "__main__":
-    # sub_path = "/home/dd/doc/cmu/research/ogre-stuff/ita/workflow_tests/cifs/CsPbBr3_cubic.cif"
-    # film_path = "/home/dd/doc/cmu/research/ogre-stuff/ita/workflow_tests/cifs/Pb4S3Br2.cif"
-
-    # sub = Structure.from_file(sub_path).as_dict()
-    # film = Structure.from_file(film_path).as_dict()
-
-    # outputs = _run_miller_scan_parallel(
-    #     film_bulk=film,
-    #     substrate_bulk=sub,
-    #     max_film_miller_index=1,
-    #     max_substrate_miller_index=1,
-    #     max_area=200,
-    #     max_strain=0.05,
-    # )
-
-    # print(outputs)
+    if sys.platform.startswith("win"):
+        # On Windows calling this function is necessary.
+        freeze_support()
 
     app.run(**app_config)
