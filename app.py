@@ -754,7 +754,7 @@ def miller_scan():
     film_structure_dict = json.loads(data["filmStructure"])
 
     s = time.time()
-    match_list = _run_miller_scan(
+    match_list = _run_miller_scan_parallel(
         film_bulk=film_structure_dict,
         substrate_bulk=substrate_structure_dict,
         max_film_miller_index=max_film_miller,
@@ -782,15 +782,21 @@ def quit():
     return
 
 
-def _run_func(x):
-    return x**2
-
-
 if __name__ == "__main__":
-    # # freeze_support()
-    # with Pool(cpu_count()) as pool:
-    #     inputs = range(10)
-    #     outputs = pool.map(_run_func, inputs)
+    # sub_path = "/home/dd/doc/cmu/research/ogre-stuff/ita/workflow_tests/cifs/CsPbBr3_cubic.cif"
+    # film_path = "/home/dd/doc/cmu/research/ogre-stuff/ita/workflow_tests/cifs/Pb4S3Br2.cif"
+
+    # sub = Structure.from_file(sub_path).as_dict()
+    # film = Structure.from_file(film_path).as_dict()
+
+    # outputs = _run_miller_scan_parallel(
+    #     film_bulk=film,
+    #     substrate_bulk=sub,
+    #     max_film_miller_index=1,
+    #     max_substrate_miller_index=1,
+    #     max_area=200,
+    #     max_strain=0.05,
+    # )
 
     # print(outputs)
 
