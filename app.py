@@ -5,7 +5,7 @@ import copy
 import json
 import io
 import base64
-from multiprocessing import Pool, cpu_count
+from multiprocessing import Pool, cpu_count, freeze_support
 import time
 
 from flask import Flask, jsonify, request
@@ -783,6 +783,5 @@ def quit():
 
 
 if __name__ == "__main__":
-    import time
-
+    freeze_support()
     app.run(**app_config)
