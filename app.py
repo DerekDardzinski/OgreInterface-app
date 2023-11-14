@@ -16,9 +16,11 @@ from pymatgen.core.lattice import Lattice
 from pymatgen.core.periodic_table import Element
 from pymatgen.analysis.local_env import CrystalNN
 from pymatgen.symmetry.analyzer import SpacegroupAnalyzer
-from ase.data import chemical_symbols
+from ase.data import chemical_symbols, vdw_radii, covalent_radii
 from matplotlib.colors import to_hex
+from matscipy.neighbours import neighbour_list
 import numpy as np
+import networkx as nx
 import matplotlib
 
 matplotlib.use("agg")
@@ -81,11 +83,15 @@ def _get_formatted_spacegroup(spacegroup: str) -> str:
     while i < len(spacegroup):
         s = spacegroup[i]
         if s == "_":
-            data = ["sub", {}, spacegroup[i + 1]]
+            data = ["sub", {"className": "inline-block"}, spacegroup[i + 1]]
             formatted_spacegroup.append(data)
             i += 2
         if s == "-":
-            data = ["span", {"className": "overline"}, spacegroup[i + 1]]
+            data = [
+                "span",
+                {"className": "overline inline-block"},
+                spacegroup[i + 1],
+            ]
             formatted_spacegroup.append(data)
             i += 2
         else:
@@ -116,6 +122,197 @@ def _get_formatted_miller_index(miller_index: str) -> str:
     formatted_miller_index.append(["span", {}, ")"])
 
     return formatted_miller_index
+
+
+def _get_neighbor_graph(
+    structure: Structure,
+) -> tp.Dict[str, tp.List[tp.Dict[str, tp.Any]]]:
+    rounded_structure = ogre_utils.get_rounded_structure(
+        structure,
+        tol=6,
+    )
+
+    lattice = rounded_structure.lattice
+    composition = rounded_structure.composition.reduced_formula
+    atomic_numbers = rounded_structure.atomic_numbers
+
+    cell_bound_shifts = {}
+
+    frac_coords = rounded_structure.frac_coords
+
+    cell_bound_shifts = {}
+
+    for i, frac_coord in enumerate(frac_coords):
+        zero_elements = np.isclose(frac_coord, 0.0)
+
+        if zero_elements.sum() > 0:
+            image_shift = list(
+                itertools.product([0, 1], repeat=zero_elements.sum())
+            )[1:]
+
+            all_shifts = []
+
+            for shift in image_shift:
+                image = np.zeros(3).astype(int)
+                image[zero_elements] += np.array(shift).astype(int)
+                all_shifts.append(image)
+
+            cell_bound_shifts[i] = np.vstack(all_shifts)
+
+    atoms = ogre_utils.get_atoms(rounded_structure)
+    init_from_idx, init_to_idx, init_d, init_to_image = neighbour_list(
+        "ijdS",
+        atoms=atoms,
+        cutoff=6.0,
+    )
+
+    init_to_image = init_to_image.astype(int)
+    init_from_image = np.zeros((len(init_from_idx), 3)).astype(int)
+
+    new_from_idx = []
+    new_to_idx = []
+    new_from_image = []
+    new_to_image = []
+    new_d = []
+
+    for from_idx_to_shift, images in cell_bound_shifts.items():
+        mask = init_from_idx == from_idx_to_shift
+
+        for img in images:
+            new_from_idx.append(init_from_idx[mask])
+            new_to_idx.append(init_to_idx[mask])
+            new_d.append(init_d[mask])
+            new_from_image.append(init_from_image[mask] + img)
+            new_to_image.append(init_to_image[mask] + img)
+
+    from_idx = np.concatenate([init_from_idx, *new_from_idx]).astype(int)
+    to_idx = np.concatenate([init_to_idx, *new_to_idx]).astype(int)
+    d = np.concatenate([init_d, *new_d])
+    from_image = np.concatenate(
+        [init_from_image, *new_from_image],
+        axis=0,
+    ).astype(int)
+    to_image = np.concatenate(
+        [init_to_image, *new_to_image],
+        axis=0,
+    ).astype(int)
+
+    to_atom_keys = np.c_[to_idx, to_image]
+    from_atom_keys = np.c_[from_idx, from_image]
+
+    in_cell_atom_keys = np.unique(from_atom_keys, axis=0)
+
+    in_cell_atom_set = {
+        "".join([str(i) for i in key]) for key in in_cell_atom_keys
+    }
+
+    all_atom_keys = np.concatenate(
+        [to_atom_keys, from_atom_keys],
+        axis=0,
+    )
+    unique_atom_keys = np.unique(all_atom_keys, axis=0)
+
+    atom_info_dict = {}
+
+    graph = nx.Graph()
+
+    for key in unique_atom_keys:
+        node = "".join([str(i) for i in key])
+        idx = key[0]
+        image = key[1:]
+        frac_coord = frac_coords[idx] + image
+        cart_coord = lattice.get_cartesian_coords(frac_coord)
+
+        Z = int(atomic_numbers[idx])
+        color = vesta_colors[Z].astype(float).tolist()
+
+        node_attributes = {
+            "inCell": node in in_cell_atom_set,
+            "position": cart_coord,
+            "color": to_hex(color),
+            "atomicNumber": Z,
+            "radius": _get_radius(Z),
+            "chemicalSymbol": chemical_symbols[Z],
+        }
+
+        atom_info_dict[node] = node_attributes
+
+        graph_node_attributes = node_attributes.copy()
+        graph_node_attributes["position"] = _three_flip(
+            node_attributes["position"].astype(float).tolist(),
+        )
+
+        graph.add_node(node, attributes=graph_node_attributes)
+
+    for i in range(len(to_idx)):
+        to_key = "".join([str(j) for j in to_atom_keys[i]])
+        from_key = "".join([str(j) for j in from_atom_keys[i]])
+
+        sorted_edge = sorted([to_key, from_key])
+        to_attributes = atom_info_dict[to_key]
+        from_attributes = atom_info_dict[from_key]
+
+        to_position = to_attributes["position"]
+        to_radius = to_attributes["radius"]
+        to_Z = to_attributes["atomicNumber"]
+
+        from_position = from_attributes["position"]
+        from_radius = from_attributes["radius"]
+        from_Z = from_attributes["atomicNumber"]
+
+        sorted_Z = sorted([to_Z, from_Z])
+        atomic_number_key = (
+            f"{chemical_symbols[sorted_Z[0]]}-{chemical_symbols[sorted_Z[1]]}"
+        )
+
+        bond_vector = to_position - from_position
+        norm_bond_vector = bond_vector / np.linalg.norm(bond_vector)
+
+        from_atom_edge = from_position + (from_radius * norm_bond_vector)
+        to_atom_edge = to_position - (to_radius * norm_bond_vector)
+
+        center_position = 0.5 * (from_atom_edge + to_atom_edge)
+        from_bond_data = {
+            "toPosition": _three_flip(center_position.astype(float).tolist()),
+            "fromPosition": _three_flip(from_position.astype(float).tolist()),
+            "color": from_attributes["color"],
+        }
+        to_bond_data = {
+            "toPosition": _three_flip(center_position.astype(float).tolist()),
+            "fromPosition": _three_flip(to_position.astype(float).tolist()),
+            "color": to_attributes["color"],
+        }
+
+        graph.add_edge(
+            sorted_edge[0],
+            sorted_edge[1],
+            key=f"{sorted_edge[0]}->{sorted_edge[1]}",
+            attributes={
+                "bondLength": float(d[i]),
+                "atomicNumberKey": atomic_number_key,
+                "bonds": [
+                    from_bond_data,
+                    to_bond_data,
+                ],
+            },
+        )
+
+    graph_data = nx.node_link_data(
+        graph,
+        source="source",
+        target="target",
+        name="key",
+        key="key",
+        link="edges",
+    )
+
+    graphology_data = {
+        "attributes": {"name": composition},
+        "nodes": graph_data["nodes"],
+        "edges": graph_data["edges"],
+    }
+
+    return graphology_data
 
 
 def _get_bond_info(
@@ -339,7 +536,7 @@ def _three_flip(xyz):
     return [x, z, -y]
 
 
-def _get_threejs_data(data_dict):
+def _get_threejs_data_old(data_dict):
     structure = Structure.from_dict(data_dict)
     structure.add_site_property("base_index", list(range(len(structure))))
     center_shift = structure.lattice.get_cartesian_coords([0.5, 0.5, 0.5])
@@ -393,7 +590,7 @@ def _get_threejs_data(data_dict):
                 bond_data = {
                     "toPosition": _three_flip(center_position.tolist()),
                     "fromPosition": _three_flip(position.tolist()),
-                    "color": color,
+                    "color": to_hex(color),
                 }
                 bond_list.append(bond_data)
 
@@ -436,6 +633,74 @@ def _get_threejs_data(data_dict):
         "atoms": atom_list,
         "bonds": bond_list,
         "unitCell": [{"points": _get_unit_cell(structure.lattice.matrix)}],
+        "basis": basis,
+        "viewData": view_info,
+        "centerShift": _three_flip((-1 * center_shift).tolist()),
+    }
+
+
+def _get_threejs_data(data_dict):
+    structure = Structure.from_dict(data_dict)
+    unique_zs = np.unique(structure.atomic_numbers)
+    z_combos = itertools.combinations_with_replacement(unique_zs, 2)
+
+    r_vdw = np.array([vdw_radii[z] for z in unique_zs])
+    r_covalent = np.array([covalent_radii[z] for z in unique_zs])
+
+    default_radius_dict = {}
+
+    for z1, z2 in z_combos:
+        key = f"{chemical_symbols[z1]}-{chemical_symbols[z2]}"
+        r_vdw = vdw_radii[z1] + vdw_radii[z2]
+        r_covalent = covalent_radii[z1] + covalent_radii[z2]
+        r_default = 0.5 * (r_vdw + r_covalent)
+        default_radius_dict[key] = float(r_default)
+
+    graph_data = _get_neighbor_graph(
+        structure=structure,
+    )
+    center_shift = structure.lattice.get_cartesian_coords([0.5, 0.5, 0.5])
+
+    basis_vecs = copy.deepcopy(structure.lattice.matrix)
+    norm_basis_vecs = basis_vecs / np.linalg.norm(basis_vecs, axis=1)
+    basis = [_three_flip(v) for v in norm_basis_vecs.tolist()]
+    a, b, c = basis
+    ab_cross = np.cross(a, b)
+    ac_cross = -np.cross(a, c)
+    bc_cross = np.cross(b, c)
+
+    view_info = {
+        "a": {
+            "lookAt": a,
+            "up": (ab_cross / np.linalg.norm(ab_cross)).tolist(),
+        },
+        "b": {
+            "lookAt": b,
+            "up": (ab_cross / np.linalg.norm(ab_cross)).tolist(),
+        },
+        "c": {
+            "lookAt": c,
+            "up": (ac_cross / np.linalg.norm(ac_cross)).tolist(),
+        },
+        "a*": {
+            "lookAt": bc_cross.tolist(),
+            "up": (ab_cross / np.linalg.norm(ab_cross)).tolist(),
+        },
+        "b*": {
+            "lookAt": ac_cross.tolist(),
+            "up": (ab_cross / np.linalg.norm(ab_cross)).tolist(),
+        },
+        "c*": {
+            "lookAt": ab_cross.tolist(),
+            "up": (ac_cross / np.linalg.norm(ac_cross)).tolist(),
+        },
+    }
+
+    return {
+        "graphData": graph_data,
+        "bondCutoffs": default_radius_dict,
+        "speciesPairs": list(default_radius_dict.keys()),
+        "unitCell": {"points": _get_unit_cell(structure.lattice.matrix)},
         "basis": basis,
         "viewData": view_info,
         "centerShift": _three_flip((-1 * center_shift).tolist()),

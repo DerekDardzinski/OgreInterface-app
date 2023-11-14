@@ -83,6 +83,7 @@ function FileUploader(props) {
 					}}
 				/>
 			</div>
+			{/* <input type="range" min={0} max="100" value="40" className="range" /> */}
 			<button onClick={handleUpload} className="btn btn-secondary mt-2">Upload Structures</button>
 		</BaseCard>
 	);

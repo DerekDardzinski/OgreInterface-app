@@ -39,7 +39,6 @@ function CameraRig(props) {
 	const initCameraPosition = useThree((state) => state.camera.position);
 	const radius = initCameraPosition.distanceTo(zeroVec);
 	useFrame((state) => {
-		// console.log(state)
 		const cameraPosition = new THREE.Vector3().add(state.camera.position);
 		const endPosition = new THREE.Vector3().add(newPosition);
 		endPosition.multiplyScalar(radius);
@@ -89,13 +88,13 @@ function Button(props) {
 	);
 }
 
-function ShowStructure({ viewGraph }) {
+function ShowStructure({ structureGraph, visibleEdges }) {
 	const data = useMemo(() => {
-		// console.log("SHOWING STRUCTURE")
+		console.log("SHOWING STRUCTURE");
 		const atoms = [];
 		const bonds = [];
-		viewGraph.forEachNode((node, attributes) => {
-			if ((viewGraph.degree(node) > 0) | attributes.inCell) {
+		structureGraph.forEachNode((node, attributes) => {
+			if (attributes.inCell) {
 				atoms.push(
 					<Atom
 						key={uuid()}
@@ -104,10 +103,26 @@ function ShowStructure({ viewGraph }) {
 						radius={attributes.radius}
 					/>
 				);
+			} else {
+				bondKeys = structureGraph.filterEdges(
+					node,
+					(edge, edgeAttribute) => visibleEdges[edge]
+				);
+
+				if (bondKeys.length > 0) {
+					atoms.push(
+						<Atom
+							key={uuid()}
+							position={attributes.position}
+							color={attributes.color}
+							radius={attributes.radius}
+						/>
+					);
+				}
 			}
 		});
 
-		viewGraph.forEachEdge(
+		structureGraph.forEachEdge(
 			(
 				edge,
 				attributes,
@@ -116,14 +131,16 @@ function ShowStructure({ viewGraph }) {
 				sourceAttributes,
 				targetAttributes
 			) => {
-				attributes.bonds.forEach((bondProps, index) => {
-					bonds.push(<Bond key={uuid()} {...bondProps} />);
-				});
+				if (visibleEdges[edge]) {
+					attributes.bonds.forEach((bondProps, index) => {
+						bonds.push(<Bond key={uuid()} {...bondProps} />);
+					});
+				}
 			}
 		);
 
 		return { atoms: atoms, bonds: bonds };
-	}, [viewGraph]);
+	}, [structureGraph, visibleEdges]);
 
 	return (
 		<>
@@ -156,45 +173,12 @@ function getViewGraph({ structureGraph, bondCutoffs }) {
 	return newGraph;
 }
 
-function BoundsRefresher({ structureGraph, groupRef }) {
+function BoundsRefresher({ structureGraph }) {
 	const bounds = useBounds();
 	useEffect(() => {
-		// bounds.refresh().clip().fit();
-		bounds.refresh(groupRef.current).clip().fit();
+		bounds.refresh().clip().fit();
+		bounds.refresh().clip().fit();
 	}, [structureGraph]);
-}
-
-function Slider(props) {
-	return (
-		<div className='grid grid-cols-5 flex-auto'>
-			<div className='col-span-1'>
-				<span className='inline-block h-[100%] w-[100%] text-center'>
-					{props.bondKey}
-				</span>
-			</div>
-			<div className='col-span-3'>
-				<input
-					type='range'
-					min={0.0}
-					max={6.0}
-					defaultValue={props.bondCutoffs[props.bondKey]}
-					step={0.01}
-					className='range range-xs'
-					onChange={(e) => {
-						props.setBondCutoffs((prevState) => ({
-							...prevState,
-							[props.bondKey] : parseFloat(e.target.value),
-						}));
-					}}
-				/>
-			</div>
-			<div className='col-span-1'>
-				<span className='inline-block h-[100%] w-[100%] text-center'>
-					{props.bondCutoffs[props.bondKey].toFixed(2)}
-				</span>
-			</div>
-		</div>
-	)
 }
 
 function StructureView(props) {
@@ -202,7 +186,6 @@ function StructureView(props) {
 	const [structureGraph, setStructureGraph] = useState(new Graph());
 	const [viewGraph, setViewGraph] = useState(new Graph());
 	const [bondCutoffs, setBondCutoffs] = useState({});
-	const [speciesPairs, setSpeciesPairs] = useState([]);
 	const [unitCell, setUnitCell] = useState(<></>);
 	const [basis, setBasis] = useState([
 		[1.0, 0.0, 0.0],
@@ -241,7 +224,6 @@ function StructureView(props) {
 		animate: false,
 	});
 	const [takeScreenShot, setTakeScreenShot] = useState(false);
-	const groupRef = useRef(new THREE.Object3D());
 
 	useEffect(() => {
 		fetch(`http://localhost:${port}/api/structure_to_three`, {
@@ -258,7 +240,6 @@ function StructureView(props) {
 				const graph = new Graph();
 				graph.import(data.graphData);
 				setStructureGraph(graph);
-				setSpeciesPairs(data.speciesPairs);
 				setBondCutoffs(data.bondCutoffs);
 				setUnitCell(<UnitCell key={uuid()} {...data.unitCell} />);
 				setCenterShift(data.centerShift);
@@ -293,20 +274,9 @@ function StructureView(props) {
 
 	const label = createElement(
 		"span",
-		{
-			className: "inline-block h-[100%] w-[100%] text-center",
-			key: uuid(),
-		},
+		{ className: "inline-block w-[100%] text-center" },
 		labelElements
 	);
-	// console.log(label)
-	console.log(bondCutoffs);
-	// const [testBondLength, setTestBondLength] = useState()
-
-	const bondSliders = [];
-	speciesPairs.forEach((k, index) => {
-		bondSliders.push(<Slider key={index} bondKey={k} bondCutoffs={bondCutoffs} setBondCutoffs={setBondCutoffs} />);
-	});
 
 	const topRow = (
 		<div className='grid grid-cols-6 flex-auto justify-center items-center gap-4 mx-4'>
@@ -327,56 +297,27 @@ function StructureView(props) {
 							<path d='M8.932.727c-.243-.97-1.62-.97-1.864 0l-.071.286a.96.96 0 0 1-1.622.434l-.205-.211c-.695-.719-1.888-.03-1.613.931l.08.284a.96.96 0 0 1-1.186 1.187l-.284-.081c-.96-.275-1.65.918-.931 1.613l.211.205a.96.96 0 0 1-.434 1.622l-.286.071c-.97.243-.97 1.62 0 1.864l.286.071a.96.96 0 0 1 .434 1.622l-.211.205c-.719.695-.03 1.888.931 1.613l.284-.08a.96.96 0 0 1 1.187 1.187l-.081.283c-.275.96.918 1.65 1.613.931l.205-.211a.96.96 0 0 1 1.622.434l.071.286c.243.97 1.62.97 1.864 0l.071-.286a.96.96 0 0 1 1.622-.434l.205.211c.695.719 1.888.03 1.613-.931l-.08-.284a.96.96 0 0 1 1.187-1.187l.283.081c.96.275 1.65-.918.931-1.613l-.211-.205a.96.96 0 0 1 .434-1.622l.286-.071c.97-.243.97-1.62 0-1.864l-.286-.071a.96.96 0 0 1-.434-1.622l.211-.205c.719-.695.03-1.888-.931-1.613l-.284.08a.96.96 0 0 1-1.187-1.186l.081-.284c.275-.96-.918-1.65-1.613-.931l-.205.211a.96.96 0 0 1-1.622-.434L8.932.727zM8 12.997a4.998 4.998 0 1 1 0-9.995 4.998 4.998 0 0 1 0 9.996z' />
 						</svg>
 					</label>
-					<div className='dropdown-content z-[1] menu p-2 shadow bg-base-100 rounded-box w-72'>
-						<p>Set Bond Lengths</p>
-						{bondSliders}
-						{/* <div className='grid grid-cols-5 flex-auto'>
-							<div className='col-span-1'>
-								<span className="inline-block h-[100%] w-[100%] text-center">Br-Pb</span>
-							</div>
-							<div className='col-span-3'>
-								<input
-									type='range'
-									min={0.0}
-									max={6.0}
-									defaultValue={3.2}
-									step={0.01}
-									className='range range-xs'
-									onChange={(e) => {
-										setBondCutoffs((prevState) => ({...prevState, "Br-Pb": parseFloat(e.target.value)}));
-										// setBondCutoffs({"Br-Pb": parseFloat(e.target.value), ...bondCutoffs});
-										console.log(e.target.value);
-									}}
-								/>
-							</div>
-							<div className='col-span-1'>
-								<span className="inline-block h-[100%] w-[100%] text-center">{bondCutoffs["Br-Pb"].toFixed(2)}</span>
-							</div>
-						</div>
-						<div className='grid grid-cols-5 flex-auto'>
-							<div className='col-span-1'>
-								<span className="inline-block h-[100%] w-[100%] text-center">Br-Pb</span>
-							</div>
-							<div className='col-span-3'>
-								<input
-									type='range'
-									min={0.0}
-									max={6.0}
-									defaultValue={bondCutoffs["Br-Pb"]}
-									step={0.01}
-									className='range range-xs'
-									onChange={(e) => {
-										setBondCutoffs((prevState) => ({...prevState, "Br-Pb": parseFloat(e.target.value)}));
-										// setBondCutoffs({"Br-Pb": parseFloat(e.target.value), ...bondCutoffs});
-										console.log(e.target.value);
-									}}
-								/>
-							</div>
-							<div className='col-span-1'>
-								<span className="inline-block h-[100%] w-[100%] text-center">{bondCutoffs["Br-Pb"].toFixed(2)}</span>
-							</div>
-						</div> */}
-					</div>
+					<form className='dropdown-content z-[1] menu p-2 shadow bg-base-100 rounded-box w-52'>
+						<input
+							type='range'
+							min={0}
+							max='100'
+							defaultValue='40'
+							className='range'
+						/>
+					</form>
+					{/* <ul
+						tabIndex={0}
+						className='dropdown-content z-[1] menu p-2 shadow bg-base-100 rounded-box w-52'
+					>
+						
+						<li>
+							<a>Item 1</a>
+						</li>
+						<li>
+							<a>Item 2</a>
+						</li>
+					</ul> */}
 				</div>
 			</div>
 			<div className='col-span-4 flex-auto justify-center items-center'>
@@ -408,38 +349,37 @@ function StructureView(props) {
 
 	return (
 		<DisplayCard topContents={topRow} bottomContents={bottomButtons}>
-			{structureGraph.order > 0 ? (
-				<Display>
-					<group ref={groupRef} position={centerShift}>
-						<ShowStructure
-							viewGraph={viewGraph}
-							bondCutoffs={bondCutoffs}
-						/>
-						{unitCell}
-					</group>
+			<Display>
+				<group position={centerShift}>
+					<ShowStructure
+						viewGraph={viewGraph}
+						bondCutoffs={bondCutoffs}
+					/>
+					{unitCell}
+				</group>
 
-					<GizmoHelper alignment='bottom-left' margin={[60, 60]}>
-						<ambientLight intensity={2.0} />
-						<BasisVectors
-							basis={basis}
-							axisColors={["red", "green", "blue"]}
-							labelColor='black'
-						/>
-					</GizmoHelper>
-					<CameraRig
-						view={animateView.view}
-						setAnimateView={setAnimateView}
-						viewData={viewData}
-						animate={animateView.animate}
+				<GizmoHelper alignment='bottom-left' margin={[60, 60]}>
+					<ambientLight intensity={2.0} />
+					<BasisVectors
+						basis={basis}
+						axisColors={["red", "green", "blue"]}
+						labelColor='black'
 					/>
-					<ScreenShot
-						takeScreenShot={takeScreenShot}
-						setTakeScreenShot={setTakeScreenShot}
-					/>
-				</Display>
-			) : (
-				<></>
-			)}
+				</GizmoHelper>
+				<CameraRig
+					view={animateView.view}
+					setAnimateView={setAnimateView}
+					viewData={viewData}
+					animate={animateView.animate}
+				/>
+				<ScreenShot
+					takeScreenShot={takeScreenShot}
+					setTakeScreenShot={setTakeScreenShot}
+				/>
+				{/* <BoundsRefresher structureGraph={structureGraph} /> */}
+				<BoundsRefresher />
+			</Display>
+			{/* {toshow} */}
 		</DisplayCard>
 	);
 }

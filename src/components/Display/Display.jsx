@@ -1,5 +1,5 @@
-import React, { useEffect, useRef } from "react";
-import { Canvas } from "@react-three/fiber";
+import React, { useEffect, useRef, useState } from "react";
+import { Canvas, useThree } from "@react-three/fiber";
 import {
 	OrbitControls,
 	SoftShadows,
@@ -7,8 +7,10 @@ import {
 	Center,
 	OrthographicCamera,
 	Bounds,
+	useBounds,
 } from "@react-three/drei";
 import * as THREE from "three";
+
 
 function Display(props) {
 	const dispRef = useRef();
@@ -39,6 +41,8 @@ function Display(props) {
 				/>
 
 				<OrbitControls
+					enablePan={false}
+					enableDamping={true}
 					onChange={(e) => {
 						if (!e) return;
 						const camera = e.target.object;
