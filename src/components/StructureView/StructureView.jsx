@@ -91,7 +91,7 @@ function Button(props) {
 
 function ShowStructure({ viewGraph }) {
 	const data = useMemo(() => {
-		// console.log("SHOWING STRUCTURE")
+		console.log("SHOWING STRUCTURE");
 		const atoms = [];
 		const bonds = [];
 		viewGraph.forEachNode((node, attributes) => {
@@ -165,25 +165,35 @@ function BoundsRefresher({ structureGraph, groupRef }) {
 }
 
 function Slider(props) {
+	const species = props.bondKey.split("-");
+
 	return (
 		<div className='grid grid-cols-5 flex-auto'>
 			<div className='col-span-1'>
-				<span className='inline-block h-[100%] w-[100%] text-center'>
+				<span className='block h-[100%] w-[100%] text-center'>
 					{props.bondKey}
 				</span>
 			</div>
-			<div className='col-span-3'>
+			<div className='col-span-3 rounded-full'>
 				<input
 					type='range'
 					min={0.0}
 					max={6.0}
 					defaultValue={props.bondCutoffs[props.bondKey]}
 					step={0.01}
-					className='range range-xs'
+					className='outline outline-base outline-1 w-[100%] h-[0.5rem] [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:h-[0.75rem] [&::-webkit-slider-thumb]:w-[0.75rem] [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-base-100 [&::-webkit-slider-thumb]:outline [&::-webkit-slider-thumb]:outline-base-content [&::-webkit-slider-thumb]:outline-1 [&::-webkit-slider-thumb]:top-[0rem] [&::-webkit-slider-thumb]:relative'
+					style={{
+						appearance: "none",
+						background: `linear-gradient(to right, ${
+							props.speciesColors[species[0]]
+						}, ${props.speciesColors[species[1]]})`,
+						borderRadius: "9999px",
+						WebkitAppearance: "none",
+					}}
 					onChange={(e) => {
 						props.setBondCutoffs((prevState) => ({
 							...prevState,
-							[props.bondKey] : parseFloat(e.target.value),
+							[props.bondKey]: parseFloat(e.target.value),
 						}));
 					}}
 				/>
@@ -194,7 +204,7 @@ function Slider(props) {
 				</span>
 			</div>
 		</div>
-	)
+	);
 }
 
 function StructureView(props) {
@@ -203,6 +213,8 @@ function StructureView(props) {
 	const [viewGraph, setViewGraph] = useState(new Graph());
 	const [bondCutoffs, setBondCutoffs] = useState({});
 	const [speciesPairs, setSpeciesPairs] = useState([]);
+	const [speciesColors, setSpeciesColors] = useState({});
+	// const [speciesGradients, setSpeciesGradients] = useState({});
 	const [unitCell, setUnitCell] = useState(<></>);
 	const [basis, setBasis] = useState([
 		[1.0, 0.0, 0.0],
@@ -259,6 +271,8 @@ function StructureView(props) {
 				graph.import(data.graphData);
 				setStructureGraph(graph);
 				setSpeciesPairs(data.speciesPairs);
+				setSpeciesColors(data.speciesColors);
+				// setSpeciesGradients(data.speciesGradients);
 				setBondCutoffs(data.bondCutoffs);
 				setUnitCell(<UnitCell key={uuid()} {...data.unitCell} />);
 				setCenterShift(data.centerShift);
@@ -305,7 +319,15 @@ function StructureView(props) {
 
 	const bondSliders = [];
 	speciesPairs.forEach((k, index) => {
-		bondSliders.push(<Slider key={index} bondKey={k} bondCutoffs={bondCutoffs} setBondCutoffs={setBondCutoffs} />);
+		bondSliders.push(
+			<Slider
+				key={index}
+				bondKey={k}
+				bondCutoffs={bondCutoffs}
+				speciesColors={speciesColors}
+				setBondCutoffs={setBondCutoffs}
+			/>
+		);
 	});
 
 	const topRow = (
@@ -327,8 +349,10 @@ function StructureView(props) {
 							<path d='M8.932.727c-.243-.97-1.62-.97-1.864 0l-.071.286a.96.96 0 0 1-1.622.434l-.205-.211c-.695-.719-1.888-.03-1.613.931l.08.284a.96.96 0 0 1-1.186 1.187l-.284-.081c-.96-.275-1.65.918-.931 1.613l.211.205a.96.96 0 0 1-.434 1.622l-.286.071c-.97.243-.97 1.62 0 1.864l.286.071a.96.96 0 0 1 .434 1.622l-.211.205c-.719.695-.03 1.888.931 1.613l.284-.08a.96.96 0 0 1 1.187 1.187l-.081.283c-.275.96.918 1.65 1.613.931l.205-.211a.96.96 0 0 1 1.622.434l.071.286c.243.97 1.62.97 1.864 0l.071-.286a.96.96 0 0 1 1.622-.434l.205.211c.695.719 1.888.03 1.613-.931l-.08-.284a.96.96 0 0 1 1.187-1.187l.283.081c.96.275 1.65-.918.931-1.613l-.211-.205a.96.96 0 0 1 .434-1.622l.286-.071c.97-.243.97-1.62 0-1.864l-.286-.071a.96.96 0 0 1-.434-1.622l.211-.205c.719-.695.03-1.888-.931-1.613l-.284.08a.96.96 0 0 1-1.187-1.186l.081-.284c.275-.96-.918-1.65-1.613-.931l-.205.211a.96.96 0 0 1-1.622-.434L8.932.727zM8 12.997a4.998 4.998 0 1 1 0-9.995 4.998 4.998 0 0 1 0 9.996z' />
 						</svg>
 					</label>
-					<div className='dropdown-content z-[1] menu p-2 shadow bg-base-100 rounded-box w-72'>
-						<p>Set Bond Lengths</p>
+					<div className='outline outline-base outline-1 dropdown-content z-[1] menu p-2 shadow bg-base-100 rounded-box w-72'>
+						<p className='text-[1rem] text-center font-bold mb-2'>
+							Set Bond Lengths
+						</p>
 						{bondSliders}
 						{/* <div className='grid grid-cols-5 flex-auto'>
 							<div className='col-span-1'>

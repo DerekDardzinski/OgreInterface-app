@@ -642,7 +642,10 @@ def _get_threejs_data_old(data_dict):
 def _get_threejs_data(data_dict):
     structure = Structure.from_dict(data_dict)
     unique_zs = np.unique(structure.atomic_numbers)
-    z_combos = itertools.combinations_with_replacement(unique_zs, 2)
+    color_dict = {
+        chemical_symbols[z]: to_hex(vesta_colors[z]) for z in unique_zs
+    }
+    z_combos = list(itertools.combinations_with_replacement(unique_zs, 2))
 
     r_vdw = np.array([vdw_radii[z] for z in unique_zs])
     r_covalent = np.array([covalent_radii[z] for z in unique_zs])
@@ -651,9 +654,13 @@ def _get_threejs_data(data_dict):
 
     for z1, z2 in z_combos:
         key = f"{chemical_symbols[z1]}-{chemical_symbols[z2]}"
-        r_vdw = vdw_radii[z1] + vdw_radii[z2]
-        r_covalent = covalent_radii[z1] + covalent_radii[z2]
-        r_default = 0.5 * (r_vdw + r_covalent)
+        if len(z_combos) > 1 and z1 != z2:
+            r_vdw = vdw_radii[z1] + vdw_radii[z2]
+            r_covalent = covalent_radii[z1] + covalent_radii[z2]
+            r_default = 0.5 * (r_vdw + r_covalent)
+        else:
+            r_default = 0.0
+
         default_radius_dict[key] = float(r_default)
 
     graph_data = _get_neighbor_graph(
@@ -700,6 +707,7 @@ def _get_threejs_data(data_dict):
         "graphData": graph_data,
         "bondCutoffs": default_radius_dict,
         "speciesPairs": list(default_radius_dict.keys()),
+        "speciesColors": color_dict,
         "unitCell": {"points": _get_unit_cell(structure.lattice.matrix)},
         "basis": basis,
         "viewData": view_info,
