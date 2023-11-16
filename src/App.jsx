@@ -10,7 +10,7 @@ import ThemeSelector from "./components/ThemeSelector/ThemeSelector.jsx";
 function App() {
 	const [substrateData, setSubstrateData] = useState("");
 	const [filmData, setFilmData] = useState("");
-	const [millerData, setMillerData] = useState([]);
+	const [millerData, setMillerData] = useState({matchPlot: "", matchData: []});
 
 	return (
 		<AppContext.Provider

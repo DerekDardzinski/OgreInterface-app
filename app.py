@@ -29,7 +29,7 @@ matplotlib.use("agg")
 
 from OgreInterface.plotting_tools.colors import vesta_colors
 
-# from OgreInterface.miller import MillerSearch
+from OgreInterface.miller import MillerSearch
 from OgreInterface.surfaces import OrientedBulk
 from OgreInterface.lattice_match import ZurMcGill
 from OgreInterface import utils as ogre_utils
@@ -641,25 +641,42 @@ def _get_threejs_data_old(data_dict):
 
 def _get_threejs_data(data_dict):
     structure = Structure.from_dict(data_dict)
+    oxi_guess = structure.composition.oxi_state_guesses()[0]
     unique_zs = np.unique(structure.atomic_numbers)
     color_dict = {
         chemical_symbols[z]: to_hex(vesta_colors[z]) for z in unique_zs
     }
     z_combos = list(itertools.combinations_with_replacement(unique_zs, 2))
 
-    r_vdw = np.array([vdw_radii[z] for z in unique_zs])
-    r_covalent = np.array([covalent_radii[z] for z in unique_zs])
+    # r_vdw = np.array([vdw_radii[z] for z in unique_zs])
+    # r_covalent = np.array([covalent_radii[z] for z in unique_zs])
 
     default_radius_dict = {}
 
     for z1, z2 in z_combos:
-        key = f"{chemical_symbols[z1]}-{chemical_symbols[z2]}"
-        if len(z_combos) > 1 and z1 != z2:
-            r_vdw = vdw_radii[z1] + vdw_radii[z2]
-            r_covalent = covalent_radii[z1] + covalent_radii[z2]
-            r_default = 0.5 * (r_vdw + r_covalent)
+        r_covalent = covalent_radii[z1] + covalent_radii[z2]
+
+        s1 = chemical_symbols[z1]
+        s2 = chemical_symbols[z2]
+
+        charge1 = oxi_guess[s1]
+        charge2 = oxi_guess[s2]
+
+        sign = np.sign(charge1 * charge2)
+
+        key = f"{s1}-{s2}"
+
+        if sign <= 0:
+            r_default = 1.4 * r_covalent
         else:
             r_default = 0.0
+
+        # if len(z_combos) > 1 and z1 != z2:
+        #     r_vdw = vdw_radii[z1] + vdw_radii[z2]
+        #     r_covalent = covalent_radii[z1] + covalent_radii[z2]
+        #     # r_default = 0.5 * (r_vdw + r_covalent)
+        # else:
+        #     r_default = 0.0
 
         default_radius_dict[key] = float(r_default)
 
@@ -796,6 +813,26 @@ def _run_miller_scan_parallel(
     film_structure = Structure.from_dict(film_bulk)
     substrate_structure = Structure.from_dict(substrate_bulk)
 
+    ms = MillerSearch(
+        substrate=substrate_structure,
+        film=film_structure,
+        max_film_index=max_film_miller_index,
+        max_substrate_index=max_substrate_miller_index,
+        max_strain=max_strain,
+        max_area=max_area,
+        refine_structure=False,
+        suppress_warnings=True,
+    )
+    ms.run_scan()
+    stream = io.BytesIO()
+    ms.plot_misfits(
+        fontsize=16,
+        dpi=150,
+        output=stream,
+    )
+    base64_stream = base64.b64encode(stream.getvalue()).decode()
+    stream.close()
+
     film_miller_indices = ogre_utils.get_unique_miller_indices(
         structure=film_structure,
         max_index=max_film_miller_index,
@@ -828,7 +865,7 @@ def _run_miller_scan_parallel(
     if len(match_list) > 1:
         match_list.sort(key=lambda x: (x["matchStrain"], x["matchArea"]))
 
-    return match_list
+    return base64_stream, match_list
 
 
 def _run_miller_scan(
@@ -1027,7 +1064,7 @@ def miller_scan():
     film_structure_dict = json.loads(data["filmStructure"])
 
     s = time.time()
-    match_list = _run_miller_scan_parallel(
+    total_plot, match_list = _run_miller_scan_parallel(
         film_bulk=film_structure_dict,
         substrate_bulk=substrate_structure_dict,
         max_film_miller_index=max_film_miller,
@@ -1037,7 +1074,7 @@ def miller_scan():
     )
     print("TOTAL TIME =", time.time() - s)
 
-    return jsonify({"matchData": match_list})
+    return jsonify({"matchData": match_list, "matchPlot": total_plot})
 
 
 """

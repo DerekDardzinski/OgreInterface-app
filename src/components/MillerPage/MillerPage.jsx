@@ -1,7 +1,7 @@
-import React, { useContext, useState, createElement } from "react";
+import React, { useContext, useState, createElement, useRef } from "react";
 import BaseCard from "../BaseCard/BaseCard.jsx";
 import AppContext from "../AppContext/AppContext.jsx";
-import uuid from 'react-uuid'; 
+import uuid from "react-uuid";
 
 const { ipcRenderer } = window;
 const port = ipcRenderer.sendSync("get-port-number");
@@ -16,7 +16,7 @@ function MillerRow(props) {
 
 	let filmLabelElements = [];
 	filmMiller.forEach((v) => {
-		const props = {key: uuid(), ...v[1]};
+		const props = { key: uuid(), ...v[1] };
 		filmLabelElements.push(createElement(v[0], props, v[2]));
 	});
 
@@ -28,7 +28,7 @@ function MillerRow(props) {
 
 	let substrateLabelElements = [];
 	substrateMiller.forEach((v) => {
-		const props = {key: uuid(), ...v[1]};
+		const props = { key: uuid(), ...v[1] };
 		substrateLabelElements.push(createElement(v[0], props, v[2]));
 	});
 
@@ -50,13 +50,16 @@ function MillerRow(props) {
 					View
 				</button>
 				<dialog id={rowID} className='modal'>
-					<div className='bg-white modal-box max-w-2xl flex justify-center items-center'>
+					<div 
+					// className='bg-white modal-box max-w-2xl flex justify-center items-center'
+					className='bg-white max-w-2xl modal-box flex justify-center items-center'
+					>
 						<form method='dialog'>
 							<button className='btn btn-sm btn-circle btn-ghost absolute right-2 top-2'>
 								✕
 							</button>
 						</form>
-						<img src={"data:image/png;base64," + imgData} />
+						<img className="object-contain" src={"data:image/png;base64," + imgData} />
 					</div>
 				</dialog>
 			</th>
@@ -74,9 +77,12 @@ function MillerPage() {
 	const [filmData, setFilmData] = film;
 	const [substrateData, setSubstrateData] = substrate;
 	const [millerData, setMillerData] = millerScan;
+	const [loading, setLoading] = useState(false);
 
 	function handleSubmit(e) {
 		// Prevent the browser from reloading the page
+		setLoading(true);
+		setMillerData({ matchData: [], matchPlot: "" });
 		e.preventDefault();
 
 		// Read the form data
@@ -97,7 +103,11 @@ function MillerPage() {
 				return res.json();
 			})
 			.then((data) => {
-				setMillerData(data["matchData"]);
+				setMillerData({
+					matchData: data["matchData"],
+					matchPlot: data["matchPlot"],
+				});
+				setLoading(false);
 			})
 			.catch((err) => {
 				console.error(err);
@@ -106,14 +116,9 @@ function MillerPage() {
 
 	const tableRows = [];
 
-	if (millerData.length > 0) {
-		millerData.forEach((rowData, index) => {
-			tableRows.push(
-				<MillerRow
-					data={rowData}
-					key={uuid()}
-				/>
-			);
+	if (millerData.matchData.length > 0) {
+		millerData.matchData.forEach((rowData, index) => {
+			tableRows.push(<MillerRow data={rowData} key={uuid()} />);
 		});
 	}
 
@@ -179,10 +184,7 @@ function MillerPage() {
 							</div>
 						</div>
 						<br></br>
-						<button
-							type='submit'
-							className='btn btn-secondary'
-						>
+						<button type='submit' className='btn btn-secondary'>
 							Run Miller Index Scan
 						</button>
 					</form>
@@ -190,21 +192,77 @@ function MillerPage() {
 			</div>
 			<div className='md:col-span-2'>
 				<BaseCard>
-					<div className='overflow-x-auto h-60 scrollbar scrollbar-w-2 scrollbar-h-2 scrollbar-thumb-rounded-full scrollbar-thumb-accent'>
+					<div className='overflow-x-auto flex max-h-60 scrollbar scrollbar-w-2 scrollbar-h-2 scrollbar-thumb-rounded-full scrollbar-thumb-accent'>
 						<table className='table table-pin-rows table-pin-cols text-lg text-center'>
-							<thead className="text-lg">
+							<thead className='text-lg'>
 								<tr>
-									<th></th>
+									<th>
+										{millerData.matchPlot === "" ? (
+											<></>
+										) : (
+											<>
+												<button
+													className='btn btn-sm btn-secondary'
+													onClick={() =>
+														document
+															.getElementById(
+																"header_button"
+															)
+															.showModal()
+													}
+												>
+													View
+												</button>
+												<dialog
+													id='header_button'
+													className='modal'
+												>
+													<div className='max-w-[90%] w-[90%] h-[90%] flex bg-white modal-box justify-center items-center'>
+														<form method='dialog'>
+															<button className='btn btn-sm btn-circle btn-ghost absolute right-2 top-2'>
+																✕
+															</button>
+														</form>
+														<img className="object-contain"
+															src={
+																"data:image/png;base64," +
+																millerData.matchPlot
+															}
+														/>
+													</div>
+												</dialog>
+											</>
+										)}
+									</th>
 									<td>Film Miller Index</td>
 									<td>Substrate Miller Index</td>
 									<td>Strain (%)</td>
-									<td><span>A<sub>Iface</sub> (<span>&#8491;</span><sup>2</sup>)</span></td>
-									<td><span>A<sub>Iface</sub>/(A<sub>Film</sub> <span>&#183;</span> A<sub>Sub</sub>)<sup>1/2</sup></span></td>
+									<td>
+										<span>
+											A<sub>Iface</sub> (
+											<span>&#8491;</span>
+											<sup>2</sup>)
+										</span>
+									</td>
+									<td>
+										<span>
+											A<sub>Iface</sub>/(A<sub>Film</sub>{" "}
+											<span>&#183;</span> A<sub>Sub</sub>)
+											<sup>1/2</sup>
+										</span>
+									</td>
 								</tr>
 							</thead>
 							<tbody>{tableRows}</tbody>
 						</table>
 					</div>
+					{loading ? (
+						<div className='flex items-center justify-center w-[100%] mt-4'>
+							<span className='loading loading-bars loading-lg'></span>
+						</div>
+					) : (
+						<></>
+					)}
 				</BaseCard>
 			</div>
 		</>
