@@ -14,9 +14,11 @@ const port = ipcRenderer.sendSync("get-port-number");
 console.log("PORT:", port);
 
 function FileUploader(props) {
-	const { film, substrate } = useContext(AppContext);
+	const { film, substrate, millerScan } = useContext(AppContext);
 	const [filmData, setFilmData] = film;
 	const [substrateData, setSubstrateData] = substrate;
+	const [millerData, setMillerData] = millerScan;
+
 	const [file, setFile] = useState({ film: null, substrate: null });
 
 	function setData(d) {
@@ -28,6 +30,9 @@ function FileUploader(props) {
 	}
 
 	function handleUpload() {
+		setMillerData({matchPlot: "", matchData: []})
+		setFilmData("")
+		setSubstrateData("")
 		const fd = new FormData();
 		fd.append("filmFile", file["film"]);
 		fd.append("substrateFile", file["substrate"]);
@@ -60,10 +65,9 @@ function FileUploader(props) {
 					id='filmUpload'
 					className='file-input file-input-bordered file-input-sm w-full'
 					onChange={(e) => {
-						setFile({
-							substrate: file.substrate,
-							film: e.target.files[0],
-						});
+						setFile((prevState) => ({
+							...prevState, film: e.target.files[0],
+						}));
 					}}
 				/>
 			</div>
@@ -76,10 +80,9 @@ function FileUploader(props) {
 					id='substrateUpload'
 					className='file-input file-input-bordered file-input-sm w-full'
 					onChange={(e) => {
-						setFile({
-							substrate: e.target.files[0],
-							film: file.film,
-						});
+						setFile((prevState) => ({
+							...prevState, substrate: e.target.files[0],
+						}));
 					}}
 				/>
 			</div>

@@ -843,6 +843,11 @@ def _run_miller_scan_parallel(
         max_index=max_substrate_miller_index,
     )
 
+    N = len(film_miller_indices)
+    M = len(substrate_miller_indices)
+
+    aspect_ratio = f"{5 * M}/{N * 4}"
+
     match_list = []
     inds = itertools.product(substrate_miller_indices, film_miller_indices)
     par_sub_inds, par_film_inds = list(zip(*inds))
@@ -865,7 +870,10 @@ def _run_miller_scan_parallel(
     if len(match_list) > 1:
         match_list.sort(key=lambda x: (x["matchStrain"], x["matchArea"]))
 
-    return base64_stream, match_list
+    return {
+        "aspectRatio": aspect_ratio,
+        "imgData": base64_stream,
+    }, match_list
 
 
 def _run_miller_scan(
@@ -1064,7 +1072,7 @@ def miller_scan():
     film_structure_dict = json.loads(data["filmStructure"])
 
     s = time.time()
-    total_plot, match_list = _run_miller_scan_parallel(
+    total_plot_data, match_list = _run_miller_scan_parallel(
         film_bulk=film_structure_dict,
         substrate_bulk=substrate_structure_dict,
         max_film_miller_index=max_film_miller,
@@ -1074,7 +1082,7 @@ def miller_scan():
     )
     print("TOTAL TIME =", time.time() - s)
 
-    return jsonify({"matchData": match_list, "matchPlot": total_plot})
+    return jsonify({"matchData": match_list, "matchPlot": total_plot_data})
 
 
 """

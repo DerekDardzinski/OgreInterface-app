@@ -50,16 +50,19 @@ function MillerRow(props) {
 					View
 				</button>
 				<dialog id={rowID} className='modal'>
-					<div 
-					// className='bg-white modal-box max-w-2xl flex justify-center items-center'
-					className='bg-white max-w-2xl modal-box flex justify-center items-center'
+					<div
+						// className='bg-white modal-box max-w-2xl flex justify-center items-center'
+						className='bg-white max-w-2xl modal-box flex justify-center items-center'
 					>
 						<form method='dialog'>
 							<button className='btn btn-sm btn-circle btn-ghost absolute right-2 top-2'>
 								✕
 							</button>
 						</form>
-						<img className="object-contain" src={"data:image/png;base64," + imgData} />
+						<img
+							className='object-contain'
+							src={"data:image/png;base64," + imgData}
+						/>
 					</div>
 				</dialog>
 			</th>
@@ -211,22 +214,33 @@ function MillerPage() {
 															.showModal()
 													}
 												>
-													View
+													View All
 												</button>
 												<dialog
 													id='header_button'
 													className='modal'
 												>
-													<div className='max-w-[90%] w-[90%] h-[90%] flex bg-white modal-box justify-center items-center'>
+													<div
+														className='bg-white max-w-[80vw] max-h-[80vh] flex relative rounded-2xl p-4 justify-center items-center z-20'
+														style={{
+															aspectRatio:
+																millerData
+																	.matchPlot
+																	.aspectRatio,
+														}}
+													>
 														<form method='dialog'>
-															<button className='btn btn-sm btn-circle btn-ghost absolute right-2 top-2'>
+															<button className='btn btn-sm btn-circle btn-ghost right-2 top-2 float-right absolute z-50'>
 																✕
 															</button>
 														</form>
-														<img className="object-contain"
+														<img
+															className='object-contain z-30'
 															src={
 																"data:image/png;base64," +
-																millerData.matchPlot
+																millerData
+																	.matchPlot
+																	.imgData
 															}
 														/>
 													</div>
