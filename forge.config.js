@@ -32,7 +32,7 @@ module.exports = {
           name: 'OgreInterface-app'
         },
         prerelease: true,
-        draft: false,
+        draft: true,
       }
     }
   ],
