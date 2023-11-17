@@ -16,12 +16,13 @@ function Display(props) {
 	const dispRef = useRef();
 	const lightRef = useRef();
 	const lightRef2 = useRef();
+	console.log("DPR =", props.dpr)
 
 	return (
 		<div ref={dispRef} className='w-[100%] h-[100%] bg-white'>
 			<Canvas
 				gl={{ preserveDrawingBuffer: false }}
-				// dpr={1}
+				dpr={props.dpr}
 				orthographic={true}
 			>
 				<Bounds fit clip margin={1.4}>
@@ -64,6 +65,10 @@ function Display(props) {
 			</Canvas>
 		</div>
 	);
+}
+
+Display.defaultProps = {
+	dpr: 1,
 }
 
 export default Display;

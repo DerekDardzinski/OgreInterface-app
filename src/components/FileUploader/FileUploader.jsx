@@ -1,6 +1,9 @@
 import React, { useEffect, useState, useContext } from "react";
 import AppContext from "../AppContext/AppContext.jsx";
 import BaseCard from "../BaseCard/BaseCard.jsx";
+import useFileStore from "../../stores/fileStore.js";
+import useBulkStore from "../../stores/bulkStore.js";
+import useMillerStore from "../../stores/millerStore.js";
 // import { get, post } from "../../utils/requests.js";
 // import { data } from "autoprefixer";
 // Electron Inter Process Communication and dialog
@@ -11,31 +14,46 @@ import BaseCard from "../BaseCard/BaseCard.jsx";
 const { ipcRenderer } = window;
 const port = ipcRenderer.sendSync("get-port-number");
 
-console.log("PORT:", port);
+// console.log("PORT:", port);
 
 function FileUploader(props) {
-	const { film, substrate, millerScan } = useContext(AppContext);
-	const [filmData, setFilmData] = film;
-	const [substrateData, setSubstrateData] = substrate;
-	const [millerData, setMillerData] = millerScan;
+	const setFilmFile = useFileStore((state) => state.setFilmFile);
+	const setSubstrateFile = useFileStore((state) => state.setSubstrateFile);
+	const filmFile = useFileStore((state) => state.filmFile);
+	const substrateFile = useFileStore((state) => state.substrateFile);
+	const setFilmStructure = useBulkStore((state) => state.setFilmStructure);
+	const setFilmLabel = useBulkStore((state) => state.setFilmLabel);
+	const setSubstrateStructure = useBulkStore(
+		(state) => state.setSubstrateStructure
+	);
+	const resetBulk = useBulkStore((state) => state.resetBulk);
+	const setSubstrateLabel = useBulkStore((state) => state.setSubstrateLabel);
+	const resetMiller = useMillerStore((state) => state.resetMiller)
 
-	const [file, setFile] = useState({ film: null, substrate: null });
+	// const { film, substrate, millerScan } = useContext(AppContext);
+	// const [filmData, setFilmData] = film;
+	// const [substrateData, setSubstrateData] = substrate;
+	// const [millerData, setMillerData] = millerScan;
 
-	function setData(d) {
-		setSubstrateData({
-			structure: d["substrate"],
-			labelData: d["substrateLabel"],
-		});
-		setFilmData({ structure: d["film"], labelData: d["filmLabel"] });
-	}
+	// const [file, setFile] = useState({ film: null, substrate: null });
+
+	// function setData(d) {
+	// 	setSubstrateData({
+	// 		structure: d["substrate"],
+	// 		labelData: d["substrateLabel"],
+	// 	});
+	// 	setFilmData({ structure: d["film"], labelData: d["filmLabel"] });
+	// }
 
 	function handleUpload() {
-		setMillerData({matchPlot: "", matchData: []})
-		setFilmData("")
-		setSubstrateData("")
+		resetBulk();
+		resetMiller();
+		// setMillerData({ matchPlot: "", matchData: [] });
+		// setFilmData("");
+		// setSubstrateData("");
 		const fd = new FormData();
-		fd.append("filmFile", file["film"]);
-		fd.append("substrateFile", file["substrate"]);
+		fd.append("filmFile", filmFile);
+		fd.append("substrateFile", substrateFile);
 
 		fetch(`http://localhost:${port}/api/structure_upload`, {
 			method: "POST",
@@ -48,7 +66,13 @@ function FileUploader(props) {
 				}
 				return res.json();
 			})
-			.then((data) => {setData(data);})
+			.then((data) => {
+				setFilmStructure(data.film)
+				setFilmLabel(data.filmLabel)
+				setSubstrateStructure(data.substrate)
+				setSubstrateLabel(data.substrateLabel)
+				// setData(data);
+			})
 			.catch((err) => {
 				console.error(err);
 			});
@@ -58,36 +82,34 @@ function FileUploader(props) {
 		<BaseCard>
 			<div className='form-control w-full mb-2'>
 				<label className='label'>
-					<span className='label-text text-md font-medium'>Upload Film Structure</span>
+					<span className='label-text text-md font-medium'>
+						Upload Film Structure
+					</span>
 				</label>
 				<input
 					type='file'
 					id='filmUpload'
 					className='file-input file-input-bordered file-input-sm w-full'
-					onChange={(e) => {
-						setFile((prevState) => ({
-							...prevState, film: e.target.files[0],
-						}));
-					}}
+					onChange={(e) => setFilmFile(e.target.files[0])}
 				/>
 			</div>
 			<div className='form-control w-full mb-2'>
 				<label className='label'>
-					<span className='label-text text-md font-medium'>Upload Substrate Structure</span>
+					<span className='label-text text-md font-medium'>
+						Upload Substrate Structure
+					</span>
 				</label>
 				<input
 					type='file'
 					id='substrateUpload'
 					className='file-input file-input-bordered file-input-sm w-full'
-					onChange={(e) => {
-						setFile((prevState) => ({
-							...prevState, substrate: e.target.files[0],
-						}));
-					}}
+					onChange={(e) => setSubstrateFile(e.target.files[0])}
 				/>
 			</div>
 			{/* <input type="range" min={0} max="100" value="40" className="range" /> */}
-			<button onClick={handleUpload} className="btn btn-secondary mt-2">Upload Structures</button>
+			<button onClick={handleUpload} className='btn btn-secondary mt-2'>
+				Upload Structures
+			</button>
 		</BaseCard>
 	);
 }

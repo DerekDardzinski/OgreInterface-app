@@ -2355,16 +2355,16 @@ __metadata:
   languageName: node
   linkType: hard
 
-"daisyui@npm:latest":
-  version: 3.9.3
-  resolution: "daisyui@npm:3.9.3"
+"daisyui@npm:3.9.4":
+  version: 3.9.4
+  resolution: "daisyui@npm:3.9.4"
   dependencies:
     colord: ^2.9
     css-selector-tokenizer: ^0.8
     postcss: ^8
     postcss-js: ^4
     tailwindcss: ^3.1
-  checksum: e6d24a605afe35067450c62a65bd5aea6ec3e8fe96d105d446b04348b0542fc1dcb87a3527705ff53e4548fc9588a9cd1ebda3a5c135ce86828be1c17770f934
+  checksum: 7f1f292331dfafbef0849ea9469383d798a353d524dfd66f9f7d67e278dab43db73e2ead1113f2e3ad9f2829fa9a313e27db272d3fcfcfe78386206ebfcdba79
   languageName: node
   linkType: hard
 
@@ -4742,7 +4742,7 @@ __metadata:
     "@tailwindcss/typography": ^0.5.10
     "@vitejs/plugin-react": ^4.1.0
     autoprefixer: ^10.4.16
-    daisyui: latest
+    daisyui: 3.9.4
     deasync: ^0.1.29
     electron: 27.0.2
     electron-squirrel-startup: ^1.0.0
@@ -4757,6 +4757,7 @@ __metadata:
     tailwindcss: ^3.3.5
     three: ^0.157.0
     tree-kill: ^1.2.2
+    zustand: ^4.4.6
   languageName: unknown
   linkType: soft
 
@@ -6405,6 +6406,15 @@ __metadata:
   languageName: node
   linkType: hard
 
+"use-sync-external-store@npm:1.2.0":
+  version: 1.2.0
+  resolution: "use-sync-external-store@npm:1.2.0"
+  peerDependencies:
+    react: ^16.8.0 || ^17.0.0 || ^18.0.0
+  checksum: 5c639e0f8da3521d605f59ce5be9e094ca772bd44a4ce7322b055a6f58eeed8dda3c94cabd90c7a41fb6fa852210092008afe48f7038792fd47501f33299116a
+  languageName: node
+  linkType: hard
+
 "username@npm:^5.1.0":
   version: 5.1.0
   resolution: "username@npm:5.1.0"
@@ -6778,5 +6788,25 @@ __metadata:
     react:
       optional: true
   checksum: 18f025b1b666a311121d3855303ff58e6a21fd107920ca474307e86984c13338d6c4cfa5cdf13382a9e0f76821f2554a12d4d200a98a66b58637e729f149797b
+  languageName: node
+  linkType: hard
+
+"zustand@npm:^4.4.6":
+  version: 4.4.6
+  resolution: "zustand@npm:4.4.6"
+  dependencies:
+    use-sync-external-store: 1.2.0
+  peerDependencies:
+    "@types/react": ">=16.8"
+    immer: ">=9.0"
+    react: ">=16.8"
+  peerDependenciesMeta:
+    "@types/react":
+      optional: true
+    immer:
+      optional: true
+    react:
+      optional: true
+  checksum: da7b00cc6dbe5cf5fc2e3fbca745317da4bbaf53bf4a6909bbd3e335242704df9689027f613461aff07eb5f672d5570bc1a2ef99d0ad7bc868920a3b331613d4
   languageName: node
   linkType: hard

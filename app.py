@@ -83,13 +83,13 @@ def _get_formatted_spacegroup(spacegroup: str) -> str:
     while i < len(spacegroup):
         s = spacegroup[i]
         if s == "_":
-            data = ["sub", {"className": "inline-block"}, spacegroup[i + 1]]
+            data = ["sub", {}, spacegroup[i + 1]]
             formatted_spacegroup.append(data)
             i += 2
         if s == "-":
             data = [
                 "span",
-                {"className": "overline inline-block"},
+                {"style": {"textDecoration": "overline"}},
                 spacegroup[i + 1],
             ]
             formatted_spacegroup.append(data)
@@ -111,7 +111,11 @@ def _get_formatted_miller_index(miller_index: str) -> str:
     while i < len(miller_index):
         s = miller_index[i]
         if s == "-":
-            data = ["span", {"className": "overline"}, miller_index[i + 1]]
+            data = [
+                "span",
+                {"style": {"textDecoration": "overline"}},
+                miller_index[i + 1],
+            ]
             formatted_miller_index.append(data)
             i += 2
         else:
@@ -870,10 +874,7 @@ def _run_miller_scan_parallel(
     if len(match_list) > 1:
         match_list.sort(key=lambda x: (x["matchStrain"], x["matchArea"]))
 
-    return {
-        "aspectRatio": aspect_ratio,
-        "imgData": base64_stream,
-    }, match_list
+    return base64_stream, aspect_ratio, match_list
 
 
 def _run_miller_scan(
@@ -1067,12 +1068,16 @@ def miller_scan():
     else:
         max_area = float(_max_area.strip())
 
-    max_strain = float(data["maxStrain"].strip())
+    max_strain = float(data["maxStrain"].strip()) / 100
     substrate_structure_dict = json.loads(data["substrateStructure"])
     film_structure_dict = json.loads(data["filmStructure"])
 
     s = time.time()
-    total_plot_data, match_list = _run_miller_scan_parallel(
+    (
+        total_plot_img_data,
+        total_plot_aspect_ratio,
+        match_list,
+    ) = _run_miller_scan_parallel(
         film_bulk=film_structure_dict,
         substrate_bulk=substrate_structure_dict,
         max_film_miller_index=max_film_miller,
@@ -1082,7 +1087,17 @@ def miller_scan():
     )
     print("TOTAL TIME =", time.time() - s)
 
-    return jsonify({"matchData": match_list, "matchPlot": total_plot_data})
+    return jsonify(
+        {
+            "matchList": match_list,
+            "totalImgData": total_plot_img_data,
+            "totalImgAspectRatio": total_plot_aspect_ratio,
+            "maxFilmIndex": data["maxFilmMiller"],
+            "maxSubstrateIndex": data["maxSubstrateMiller"],
+            "maxArea": data["maxArea"],
+            "maxStrain": data["maxStrain"],
+        }
+    )
 
 
 """

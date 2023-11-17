@@ -66,7 +66,7 @@ function ScreenShot(props) {
 		createE1.click();
 		createE1.remove();
 		props.setTakeScreenShot(false);
-		invalidate();
+		props.setDpr(1);
 	}
 }
 
@@ -184,9 +184,8 @@ function Slider(props) {
 					className='outline outline-base outline-1 w-[100%] h-[0.5rem] [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:h-[0.75rem] [&::-webkit-slider-thumb]:w-[0.75rem] [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-base-100 [&::-webkit-slider-thumb]:outline [&::-webkit-slider-thumb]:outline-base-content [&::-webkit-slider-thumb]:outline-1 [&::-webkit-slider-thumb]:top-[0rem] [&::-webkit-slider-thumb]:relative'
 					style={{
 						appearance: "none",
-						background: `linear-gradient(to right, ${
-							props.speciesColors[species[0]]
-						}, ${props.speciesColors[species[1]]})`,
+						// background: `linear-gradient(to right, ${props.speciesColors[species[0]]}, ${props.speciesColors[species[0]]} 40%, #dddddd, ${props.speciesColors[species[1]]}) 60%, ${props.speciesColors[species[1]]})`,
+						background: `linear-gradient(to right, ${props.speciesColors[species[0]]} 15%, #eeeeee, ${props.speciesColors[species[1]]} 85%)`,
 						borderRadius: "9999px",
 						WebkitAppearance: "none",
 					}}
@@ -208,13 +207,14 @@ function Slider(props) {
 }
 
 function StructureView(props) {
-	const structureData = props.structureData;
+	const structure = props.structure
+	const labelData = props.labelData
+
 	const [structureGraph, setStructureGraph] = useState(new Graph());
 	const [viewGraph, setViewGraph] = useState(new Graph());
 	const [bondCutoffs, setBondCutoffs] = useState({});
 	const [speciesPairs, setSpeciesPairs] = useState([]);
 	const [speciesColors, setSpeciesColors] = useState({});
-	// const [speciesGradients, setSpeciesGradients] = useState({});
 	const [unitCell, setUnitCell] = useState(<></>);
 	const [basis, setBasis] = useState([
 		[1.0, 0.0, 0.0],
@@ -253,12 +253,13 @@ function StructureView(props) {
 		animate: false,
 	});
 	const [takeScreenShot, setTakeScreenShot] = useState(false);
+	const [dpr, setDpr] = useState(1)
 	const groupRef = useRef(new THREE.Object3D());
 
 	useEffect(() => {
 		fetch(`http://localhost:${port}/api/structure_to_three`, {
 			method: "POST",
-			body: structureData.structure,
+			body: structure,
 		})
 			.then((res) => {
 				if (!res.ok) {
@@ -272,7 +273,6 @@ function StructureView(props) {
 				setStructureGraph(graph);
 				setSpeciesPairs(data.speciesPairs);
 				setSpeciesColors(data.speciesColors);
-				// setSpeciesGradients(data.speciesGradients);
 				setBondCutoffs(data.bondCutoffs);
 				setUnitCell(<UnitCell key={uuid()} {...data.unitCell} />);
 				setCenterShift(data.centerShift);
@@ -282,7 +282,7 @@ function StructureView(props) {
 			.catch((err) => {
 				console.error(err);
 			});
-	}, [structureData]);
+	}, [structure]);
 
 	useEffect(() => {
 		setViewGraph(getViewGraph({ structureGraph, bondCutoffs }));
@@ -300,22 +300,19 @@ function StructureView(props) {
 	);
 
 	let labelElements = [];
-	structureData.labelData.forEach((v) => {
+	labelData.forEach((v) => {
 		const props = { key: uuid(), ...v[1] };
 		labelElements.push(createElement(v[0], props, v[2]));
 	});
 
 	const label = createElement(
-		"span",
+		"div",
 		{
 			className: "inline-block h-[100%] w-[100%] text-center",
 			key: uuid(),
 		},
 		labelElements
 	);
-	// console.log(label)
-	console.log(bondCutoffs);
-	// const [testBondLength, setTestBondLength] = useState()
 
 	const bondSliders = [];
 	speciesPairs.forEach((k, index) => {
@@ -354,52 +351,6 @@ function StructureView(props) {
 							Set Bond Lengths
 						</p>
 						{bondSliders}
-						{/* <div className='grid grid-cols-5 flex-auto'>
-							<div className='col-span-1'>
-								<span className="inline-block h-[100%] w-[100%] text-center">Br-Pb</span>
-							</div>
-							<div className='col-span-3'>
-								<input
-									type='range'
-									min={0.0}
-									max={6.0}
-									defaultValue={3.2}
-									step={0.01}
-									className='range range-xs'
-									onChange={(e) => {
-										setBondCutoffs((prevState) => ({...prevState, "Br-Pb": parseFloat(e.target.value)}));
-										// setBondCutoffs({"Br-Pb": parseFloat(e.target.value), ...bondCutoffs});
-										console.log(e.target.value);
-									}}
-								/>
-							</div>
-							<div className='col-span-1'>
-								<span className="inline-block h-[100%] w-[100%] text-center">{bondCutoffs["Br-Pb"].toFixed(2)}</span>
-							</div>
-						</div>
-						<div className='grid grid-cols-5 flex-auto'>
-							<div className='col-span-1'>
-								<span className="inline-block h-[100%] w-[100%] text-center">Br-Pb</span>
-							</div>
-							<div className='col-span-3'>
-								<input
-									type='range'
-									min={0.0}
-									max={6.0}
-									defaultValue={bondCutoffs["Br-Pb"]}
-									step={0.01}
-									className='range range-xs'
-									onChange={(e) => {
-										setBondCutoffs((prevState) => ({...prevState, "Br-Pb": parseFloat(e.target.value)}));
-										// setBondCutoffs({"Br-Pb": parseFloat(e.target.value), ...bondCutoffs});
-										console.log(e.target.value);
-									}}
-								/>
-							</div>
-							<div className='col-span-1'>
-								<span className="inline-block h-[100%] w-[100%] text-center">{bondCutoffs["Br-Pb"].toFixed(2)}</span>
-							</div>
-						</div> */}
 					</div>
 				</div>
 			</div>
@@ -410,6 +361,7 @@ function StructureView(props) {
 				<div
 					onClick={() => {
 						setTakeScreenShot(true);
+						setDpr(6);
 					}}
 					// className='bg-red-200 rounded-2xl w-[100%] h-[70%] flex-auto justify-center items-center'
 					className='p-0 m-0 btn btn-neutral btn-outline focus:btn-accent focus:btn-outline rounded-2xl w-[100%] h-[70%]'
@@ -433,7 +385,7 @@ function StructureView(props) {
 	return (
 		<DisplayCard topContents={topRow} bottomContents={bottomButtons}>
 			{structureGraph.order > 0 ? (
-				<Display>
+				<Display dpr={dpr}>
 					<group ref={groupRef} position={centerShift}>
 						<ShowStructure
 							viewGraph={viewGraph}
@@ -459,6 +411,7 @@ function StructureView(props) {
 					<ScreenShot
 						takeScreenShot={takeScreenShot}
 						setTakeScreenShot={setTakeScreenShot}
+						setDpr={setDpr}
 					/>
 				</Display>
 			) : (

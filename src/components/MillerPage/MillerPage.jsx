@@ -2,6 +2,8 @@ import React, { useContext, useState, createElement, useRef } from "react";
 import BaseCard from "../BaseCard/BaseCard.jsx";
 import AppContext from "../AppContext/AppContext.jsx";
 import uuid from "react-uuid";
+import useMillerStore from "../../stores/millerStore.js";
+import useBulkStore from "../../stores/bulkStore.js";
 
 const { ipcRenderer } = window;
 const port = ipcRenderer.sendSync("get-port-number");
@@ -76,23 +78,52 @@ function MillerRow(props) {
 }
 
 function MillerPage() {
-	const { film, substrate, millerScan } = useContext(AppContext);
-	const [filmData, setFilmData] = film;
-	const [substrateData, setSubstrateData] = substrate;
-	const [millerData, setMillerData] = millerScan;
+	// const { film, substrate, millerScan } = useContext(AppContext);
+	// const [filmData, setFilmData] = film;
+	// const [substrateData, setSubstrateData] = substrate;
+	// const [millerData, setMillerData] = millerScan;
+	// console.log(useMillerStore());
+	const {
+		matchList,
+		maxArea,
+		maxFilmIndex,
+		maxSubstrateIndex,
+		maxStrain,
+		totalMatchImgData,
+		totalMatchAspectRatio,
+		setMatchList,
+		setMaxArea,
+		setMaxStrain,
+		setMaxFilmIndex,
+		setMaxSubstrateIndex,
+		setTotalMatchAspectRatio,
+		setTotalMatchImgData,
+		resetMiller,
+	} = useMillerStore();
+	console.log(matchList);
+	console.log(maxArea);
+	const filmStructure = useBulkStore((state) => state.filmStructure);
+	const substrateStructure = useBulkStore(
+		(state) => state.substrateStructure
+	);
+
 	const [loading, setLoading] = useState(false);
 
 	function handleSubmit(e) {
 		// Prevent the browser from reloading the page
-		setLoading(true);
-		setMillerData({ matchData: [], matchPlot: "" });
+
+		
+		// setMillerData({ matchData: [], matchPlot: "" });
 		e.preventDefault();
+		setLoading(true);
+		resetMiller();
 
 		// Read the form data
 		const form = e.target;
+		console.log(form)
 		const fd = new FormData(form);
-		fd.append("filmStructure", filmData.structure);
-		fd.append("substrateStructure", substrateData.structure);
+		fd.append("filmStructure", filmStructure);
+		fd.append("substrateStructure", substrateStructure);
 
 		// You can pass formData as a fetch body directly:
 		fetch(`http://localhost:${port}/api/miller_scan`, {
@@ -106,10 +137,17 @@ function MillerPage() {
 				return res.json();
 			})
 			.then((data) => {
-				setMillerData({
-					matchData: data["matchData"],
-					matchPlot: data["matchPlot"],
-				});
+				setMaxArea(data.maxArea);
+				setMaxStrain(data.maxStrain);
+				setMaxSubstrateIndex(data.maxSubstrateIndex);
+				setMaxFilmIndex(data.maxFilmIndex);
+				setMatchList(data.matchList);
+				setTotalMatchImgData(data.totalImgData);
+				setTotalMatchAspectRatio(data.totalImgAspectRatio);
+				// setMillerData({
+				// 	matchData: data["matchData"],
+				// 	matchPlot: data["matchPlot"],
+				// });
 				setLoading(false);
 			})
 			.catch((err) => {
@@ -119,8 +157,8 @@ function MillerPage() {
 
 	const tableRows = [];
 
-	if (millerData.matchData.length > 0) {
-		millerData.matchData.forEach((rowData, index) => {
+	if (matchList.length > 0) {
+		matchList.forEach((rowData, index) => {
 			tableRows.push(<MillerRow data={rowData} key={uuid()} />);
 		});
 	}
@@ -142,7 +180,8 @@ function MillerPage() {
 									type='text'
 									id='maxFilmMiller'
 									name='maxFilmMiller'
-									placeholder='2'
+									placeholder='1'
+									defaultValue={maxFilmIndex}
 									className={textClassName}
 								/>
 							</div>
@@ -155,33 +194,36 @@ function MillerPage() {
 									type='text'
 									id='maxSubstrateMiller'
 									name='maxSubstrateMiller'
-									placeholder='2'
+									placeholder='1'
+									defaultValue={maxSubstrateIndex}
 									className={textClassName}
 								/>
 							</div>
 							<div>
 								<label className='text-lg font-medium mb-1'>
-									Max Interface Area (optional):
+									Max Interface Area (<span>&#8491;</span><sup>2</sup>):
 								</label>
 								<br></br>
 								<input
 									type='text'
 									id='maxArea'
 									name='maxArea'
-									placeholder='200'
+									placeholder='optional'
+									defaultValue={maxArea}
 									className={textClassName}
 								/>
 							</div>
 							<div>
 								<label className='text-lg font-medium mb-1'>
-									Max Interface Strain:
+									Max Interface Strain (%):
 								</label>
 								<br></br>
 								<input
 									type='text'
 									id='maxStrain'
 									name='maxStrain'
-									placeholder='0.05'
+									placeholder='3.0'
+									defaultValue={maxStrain}
 									className={textClassName}
 								/>
 							</div>
@@ -200,7 +242,7 @@ function MillerPage() {
 							<thead className='text-lg'>
 								<tr>
 									<th>
-										{millerData.matchPlot === "" ? (
+										{totalMatchImgData === "" ? (
 											<></>
 										) : (
 											<>
@@ -223,10 +265,7 @@ function MillerPage() {
 													<div
 														className='bg-white max-w-[80vw] max-h-[80vh] flex relative rounded-2xl p-4 justify-center items-center z-20'
 														style={{
-															aspectRatio:
-																millerData
-																	.matchPlot
-																	.aspectRatio,
+															aspectRatio: totalMatchAspectRatio,
 														}}
 													>
 														<form method='dialog'>
@@ -237,10 +276,7 @@ function MillerPage() {
 														<img
 															className='object-contain z-30'
 															src={
-																"data:image/png;base64," +
-																millerData
-																	.matchPlot
-																	.imgData
+																"data:image/png;base64," + totalMatchImgData
 															}
 														/>
 													</div>
