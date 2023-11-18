@@ -5,8 +5,10 @@ const useBulkStore = create((set) => ({
 	filmLabel: "",
 	substrateStructure: "",
 	substrateLabel: "",
-	setFilmStructure: (file) => set({ filmStructure: file }),
-	setSubstrateStructure: (file) => set({ substrateStructure: file }),
+	bulkUploaded: false,
+	setBulkUploaded: () => set({bulkUploaded: true}),
+	setFilmStructure: (data) => set({ filmStructure: data }),
+	setSubstrateStructure: (data) => set({ substrateStructure: data }),
 	setFilmLabel: (label) => set({ filmLabel: label }),
 	setSubstrateLabel: (label) => set({ substrateLabel: label }),
 	resetBulk: () =>
@@ -15,6 +17,7 @@ const useBulkStore = create((set) => ({
 			substrateStructure: "",
 			filmLabel: "",
 			substrateLabel: "",
+			bulkUploaded: false,
 		}),
 }));
 

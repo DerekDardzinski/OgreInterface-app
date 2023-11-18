@@ -1,21 +1,21 @@
 import React, { useState } from "react";
-import BaseCard from "../BaseCard/BaseCard.jsx";
-import OptimizePage from "../OptimizePage/OptimizePage.jsx";
-import MillerPage from "../MillerPage/MillerPage.jsx";
+import BaseCard from "../../components/BaseCard/BaseCard.jsx";
+import OptimizePanel from "../OptimizePanel/OptimizePanel.jsx";
+import MillerPanel from "../MillerPanel/MillerPanel.jsx";
 
-function SelectionPage() {
+function SelectionPanel() {
     const [mode, setMode] = useState("")
 
     let pageToDisplay = (<></>)
     if (mode === "optimize") {
         pageToDisplay = (
-            <OptimizePage/>
+            <OptimizePanel/>
         )
     }
 
     if (mode === "miller") {
         pageToDisplay = (
-           <MillerPage/>
+           <MillerPanel/>
         )
     }
 	return (
@@ -58,4 +58,4 @@ function SelectionPage() {
 	);
 }
 
-export default SelectionPage;
+export default SelectionPanel;

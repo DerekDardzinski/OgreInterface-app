@@ -1,6 +1,6 @@
 import React, { useContext, useState, createElement, useRef } from "react";
-import BaseCard from "../BaseCard/BaseCard.jsx";
-import AppContext from "../AppContext/AppContext.jsx";
+import BaseCard from "../../components/BaseCard/BaseCard.jsx";
+import AppContext from "../../components/AppContext/AppContext.jsx";
 import uuid from "react-uuid";
 import useMillerStore from "../../stores/millerStore.js";
 import useBulkStore from "../../stores/bulkStore.js";
@@ -77,7 +77,7 @@ function MillerRow(props) {
 	);
 }
 
-function MillerPage() {
+function MillerPanel() {
 	// const { film, substrate, millerScan } = useContext(AppContext);
 	// const [filmData, setFilmData] = film;
 	// const [substrateData, setSubstrateData] = substrate;
@@ -319,4 +319,4 @@ function MillerPage() {
 	);
 }
 
-export default MillerPage;
+export default MillerPanel;

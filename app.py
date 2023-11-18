@@ -1055,6 +1055,15 @@ def convert_structure_to_three():
         return jsonify(plotting_data)
 
 
+@app.route("/api/test_search", methods=["POST"])
+@cross_origin()
+def test_search():
+    for i in range(500):
+        time.sleep(0.01)
+
+    return {"result": "Finished!!"}
+
+
 @app.route("/api/miller_scan", methods=["POST"])
 @cross_origin()
 def miller_scan():

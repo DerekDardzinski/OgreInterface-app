@@ -28,6 +28,8 @@ function FileUploader(props) {
 	);
 	const resetBulk = useBulkStore((state) => state.resetBulk);
 	const setSubstrateLabel = useBulkStore((state) => state.setSubstrateLabel);
+	// const bulkUploaded = useBulkStore((state) => state.bulkUploaded)
+	const setBulkUploaded = useBulkStore((state) => state.setBulkUploaded)
 	const resetMiller = useMillerStore((state) => state.resetMiller)
 
 	// const { film, substrate, millerScan } = useContext(AppContext);
@@ -71,6 +73,7 @@ function FileUploader(props) {
 				setFilmLabel(data.filmLabel)
 				setSubstrateStructure(data.substrate)
 				setSubstrateLabel(data.substrateLabel)
+				setBulkUploaded()
 				// setData(data);
 			})
 			.catch((err) => {
@@ -79,6 +82,7 @@ function FileUploader(props) {
 	}
 
 	return (
+		<div className='md:col-span-2'>
 		<BaseCard>
 			<div className='form-control w-full mb-2'>
 				<label className='label'>
@@ -106,11 +110,11 @@ function FileUploader(props) {
 					onChange={(e) => setSubstrateFile(e.target.files[0])}
 				/>
 			</div>
-			{/* <input type="range" min={0} max="100" value="40" className="range" /> */}
 			<button onClick={handleUpload} className='btn btn-secondary mt-2'>
 				Upload Structures
 			</button>
 		</BaseCard>
+		</div>
 	);
 }
 

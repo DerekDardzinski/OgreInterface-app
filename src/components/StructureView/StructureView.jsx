@@ -208,7 +208,7 @@ function Slider(props) {
 
 function StructureView(props) {
 	const structure = props.structure
-	const labelData = props.labelData
+	const label = props.label
 
 	const [structureGraph, setStructureGraph] = useState(new Graph());
 	const [viewGraph, setViewGraph] = useState(new Graph());
@@ -299,20 +299,20 @@ function StructureView(props) {
 		</div>
 	);
 
-	let labelElements = [];
-	labelData.forEach((v) => {
-		const props = { key: uuid(), ...v[1] };
-		labelElements.push(createElement(v[0], props, v[2]));
-	});
+	// let labelElements = [];
+	// labelData.forEach((v) => {
+	// 	const props = { key: uuid(), ...v[1] };
+	// 	labelElements.push(createElement(v[0], props, v[2]));
+	// });
 
-	const label = createElement(
-		"div",
-		{
-			className: "inline-block h-[100%] w-[100%] text-center",
-			key: uuid(),
-		},
-		labelElements
-	);
+	// const label = createElement(
+	// 	"span",
+	// 	{
+	// 		className: "inline-block h-[100%] w-[100%] text-center",
+	// 		key: uuid(),
+	// 	},
+	// 	labelElements
+	// );
 
 	const bondSliders = [];
 	speciesPairs.forEach((k, index) => {
