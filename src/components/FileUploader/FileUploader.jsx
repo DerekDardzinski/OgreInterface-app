@@ -4,6 +4,7 @@ import BaseCard from "../BaseCard/BaseCard.jsx";
 import useFileStore from "../../stores/fileStore.js";
 import useBulkStore from "../../stores/bulkStore.js";
 import useMillerStore from "../../stores/millerStore.js";
+import useOptimizeStore from "../../stores/optimizeStore.js";
 // import { get, post } from "../../utils/requests.js";
 // import { data } from "autoprefixer";
 // Electron Inter Process Communication and dialog
@@ -28,9 +29,9 @@ function FileUploader(props) {
 	);
 	const resetBulk = useBulkStore((state) => state.resetBulk);
 	const setSubstrateLabel = useBulkStore((state) => state.setSubstrateLabel);
-	// const bulkUploaded = useBulkStore((state) => state.bulkUploaded)
-	const setBulkUploaded = useBulkStore((state) => state.setBulkUploaded)
-	const resetMiller = useMillerStore((state) => state.resetMiller)
+	const setBulkUploaded = useBulkStore((state) => state.setBulkUploaded);
+	const resetMiller = useMillerStore((state) => state.resetMiller);
+	const resetOptimize = useOptimizeStore((state) => state.resetOptimize);
 
 	// const { film, substrate, millerScan } = useContext(AppContext);
 	// const [filmData, setFilmData] = film;
@@ -50,6 +51,7 @@ function FileUploader(props) {
 	function handleUpload() {
 		resetBulk();
 		resetMiller();
+		resetOptimize();
 		// setMillerData({ matchPlot: "", matchData: [] });
 		// setFilmData("");
 		// setSubstrateData("");

@@ -7,6 +7,7 @@ function Atom(props) {
 	return (
 		<mesh ref={ref} position={props.position}>
 			<Sphere args={[props.radius, 32, 32]}>
+				{/* <meshToonMaterial attach="material" color={props.color} map={new THREE.five}/> */}
 				<meshStandardMaterial
 					attach='material'
 					color={props.color}

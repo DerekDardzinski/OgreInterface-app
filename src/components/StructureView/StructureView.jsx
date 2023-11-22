@@ -391,7 +391,7 @@ function StructureView(props) {
 							viewGraph={viewGraph}
 							bondCutoffs={bondCutoffs}
 						/>
-						{unitCell}
+						{/* {unitCell} */}
 					</group>
 
 					<GizmoHelper alignment='bottom-left' margin={[60, 60]}>

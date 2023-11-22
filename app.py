@@ -34,6 +34,12 @@ from OgreInterface.surfaces import OrientedBulk
 from OgreInterface.lattice_match import ZurMcGill
 from OgreInterface import utils as ogre_utils
 from OgreInterface.plotting_tools import plot_match
+from OgreInterface.generate import SurfaceGenerator, InterfaceGenerator
+from OgreInterface.surface_matching import (
+    IonicSurfaceEnergy,
+    IonicSurfaceMatcher,
+)
+from OgreInterface.workflows.interface_search import IonicInterfaceSearch
 
 app = Flask(__name__)
 app_config = {"host": "0.0.0.0", "port": sys.argv[1]}
@@ -643,9 +649,17 @@ def _get_threejs_data_old(data_dict):
     }
 
 
-def _get_threejs_data(data_dict):
-    structure = Structure.from_dict(data_dict)
-    oxi_guess = structure.composition.oxi_state_guesses()[0]
+def _get_threejs_data(
+    structure: Structure,
+    charge_dict: tp.Optional[tp.Dict[str, float]] = None,
+):
+    if charge_dict is None:
+        oxi_guess = structure.composition.oxi_state_guesses()
+        oxi_guess = oxi_guess or [{e.symbol: 0 for e in structure.composition}]
+        oxi_guess = oxi_guess[0]
+    else:
+        oxi_guess = charge_dict
+
     unique_zs = np.unique(structure.atomic_numbers)
     color_dict = {
         chemical_symbols[z]: to_hex(vesta_colors[z]) for z in unique_zs
@@ -792,7 +806,7 @@ def _single_miller_scan(
         match_data = {
             "filmMillerIndex": formatted_film_miller,
             "substrateMillerIndex": formatted_sub_miller,
-            "matchArea": round(float(best_match.area)),
+            "matchArea": round(float(best_match.area), 3),
             "matchRelativeArea": round(
                 float(best_match.area / np.sqrt(sub_area * film_area)),
                 3,
@@ -973,6 +987,269 @@ def _run_miller_scan(
     return match_list
 
 
+def _get_film_and_substrate_inds(
+    film_generator: SurfaceGenerator,
+    substrate_generator: SurfaceGenerator,
+    filter_on_charge: bool = True,
+    use_most_stable_substrate: bool = True,
+) -> tp.List[tp.Tuple[int, int]]:
+    film_and_substrate_inds = []
+
+    if use_most_stable_substrate:
+        substrate_inds_to_use = _get_most_stable_surface(
+            surface_generator=substrate_generator
+        )
+    else:
+        substrate_inds_to_use = np.arange(len(substrate_generator)).astype(int)
+
+    for i, film in enumerate(film_generator):
+        for j, sub in enumerate(substrate_generator):
+            if j in substrate_inds_to_use:
+                if filter_on_charge:
+                    sub_sign = np.sign(sub.top_surface_charge)
+                    film_sign = np.sign(film.bottom_surface_charge)
+
+                    if sub_sign == 0.0 or film_sign == 0.0:
+                        film_and_substrate_inds.append((i, j))
+                    else:
+                        if np.sign(sub_sign * film_sign) < 0.0:
+                            film_and_substrate_inds.append((i, j))
+                else:
+                    film_and_substrate_inds.append((i, j))
+
+    return film_and_substrate_inds
+
+
+def _get_most_stable_surface(
+    surface_generator: SurfaceGenerator,
+) -> tp.List[int]:
+    surface_energies = []
+    for surface in surface_generator:
+        surfE_calculator = IonicSurfaceEnergy(
+            surface=surface,
+            auto_determine_born_n=False,
+            born_n=12.0,
+        )
+        surface_energies.append(surfE_calculator.get_cleavage_energy())
+
+    surface_energies = np.round(np.array(surface_energies), 6)
+    min_surface_energy = surface_energies.min()
+
+    most_stable_indices = np.where(surface_energies == min_surface_energy)
+
+    return most_stable_indices[0].astype(int).tolist()
+
+
+def _get_optimize_inputs(
+    film_bulk,
+    substrate_bulk,
+    film_miller_index: tp.List[int],
+    substrate_miller_index: tp.List[int],
+    use_most_stable_substrate: bool,
+) -> tp.List[tp.Dict[str, tp.Union[tp.List[int], float]]]:
+    film_structure = Structure.from_dict(film_bulk)
+    substrate_structure = Structure.from_dict(substrate_bulk)
+
+    films = SurfaceGenerator(
+        bulk=film_structure,
+        miller_index=film_miller_index,
+        minimum_thickness=10.0,
+        refine_structure=False,
+    )
+
+    substrates = SurfaceGenerator(
+        bulk=substrate_structure,
+        miller_index=substrate_miller_index,
+        minimum_thickness=10.0,
+        refine_structure=False,
+    )
+
+    film_sub_inds = _get_film_and_substrate_inds(
+        film_generator=films,
+        substrate_generator=substrates,
+        filter_on_charge=True,
+        use_most_stable_substrate=use_most_stable_substrate,
+    )
+
+    return_data = [
+        {"film": film_ind, "substrate": sub_ind}
+        for (film_ind, sub_ind) in film_sub_inds
+    ]
+
+    return return_data
+
+
+def _shrink_slab_cell(
+    structure: Structure,
+    pad=5.0,
+) -> Structure:
+    z_frac = structure.frac_coords[:, -1]
+    z_min = z_frac.min()
+    structure.translate_sites(
+        indices=range(len(structure)),
+        vector=np.array([0, 0, -z_min]),
+        frac_coords=True,
+        to_unit_cell=True,
+    )
+
+    rounded_struc = ogre_utils.get_rounded_structure(
+        structure=structure,
+        tol=6,
+    )
+    z_cart = rounded_struc.cart_coords[:, -1]
+    max_z = z_cart.max()
+
+    matrix = copy.deepcopy(rounded_struc.lattice.matrix)
+    matrix[-1, -1] = max_z + (2 * pad)
+
+    shrunk_struc = Structure(
+        lattice=Lattice(
+            matrix=matrix,
+            pbc=(True, True, False),
+        ),
+        species=rounded_struc.species,
+        coords=rounded_struc.cart_coords,
+        coords_are_cartesian=True,
+        to_unit_cell=True,
+    )
+
+    shrunk_struc.translate_sites(
+        indices=range(len(shrunk_struc)),
+        vector=np.array([0, 0, pad]),
+        frac_coords=False,
+        to_unit_cell=True,
+    )
+
+    return shrunk_struc
+
+
+def _optimize_interface_all(
+    film_bulk,
+    substrate_bulk,
+    film_miller_index: tp.List[int],
+    substrate_miller_index: tp.List[int],
+    use_most_stable_substrate: bool,
+    max_area: float,
+    max_strain: float,
+) -> tp.List[tp.Dict[str, tp.Union[tp.List[int], float]]]:
+    film_structure = Structure.from_dict(film_bulk)
+    substrate_structure = Structure.from_dict(substrate_bulk)
+
+    iface_search = IonicInterfaceSearch(
+        substrate_bulk=substrate_structure,
+        film_bulk=film_structure,
+        substrate_miller_index=substrate_miller_index,
+        film_miller_index=film_miller_index,
+        minimum_slab_thickness=10.0,
+        vacuum=13.0,
+        max_strain=max_strain,
+        max_area=max_area,
+        n_particles_PSO=15,
+        max_iterations_PSO=75,
+        app_mode=True,
+        dpi=100,
+        verbose=False,
+        use_most_stable_substrate=use_most_stable_substrate,
+    )
+
+    return_data = iface_search.run_interface_search(filter_on_charge=True)
+
+    return return_data
+
+
+def _optimize_interface(
+    film_bulk,
+    substrate_bulk,
+    film_miller_index: tp.List[int],
+    substrate_miller_index: tp.List[int],
+    film_index: int,
+    substrate_index: int,
+    max_area: float,
+    max_strain: float,
+) -> tp.List[tp.Dict[str, tp.Union[tp.List[int], float]]]:
+    film_structure = Structure.from_dict(film_bulk)
+    substrate_structure = Structure.from_dict(substrate_bulk)
+
+    films = SurfaceGenerator(
+        bulk=film_structure,
+        miller_index=film_miller_index,
+        minimum_thickness=10.0,
+        refine_structure=False,
+    )
+
+    substrates = SurfaceGenerator(
+        bulk=substrate_structure,
+        miller_index=substrate_miller_index,
+        minimum_thickness=10.0,
+        refine_structure=False,
+    )
+
+    film = films[film_index]
+    substrate = substrates[substrate_index]
+
+    interface_generator = InterfaceGenerator(
+        substrate=substrate,
+        film=film,
+        max_strain=max_strain,
+        max_area=max_area,
+        interfacial_distance=2.0,
+        center=True,
+    )
+
+    interfaces = interface_generator.generate_interfaces()
+    interface = interfaces[0]
+
+    surface_matcher = IonicSurfaceMatcher(
+        interface=interface,
+        auto_determine_born_n=False,
+        born_n=12.0,
+    )
+
+    surface_matcher.optimizePSO(
+        max_iters=100,
+        n_particles=15,
+    )
+
+    surface_matcher.get_optimized_structure()
+
+    iface = interface.get_interface(orthogonal=True)
+
+    inds_to_keep = []
+
+    for i in range(2):
+        sub_inds = interface.get_substrate_layer_indices(
+            layer_from_interface=i,
+            atomic_layers=True,
+        )
+        film_inds = interface.get_film_layer_indices(
+            layer_from_interface=i,
+            atomic_layers=True,
+        )
+
+        inds_to_keep.append(sub_inds)
+        inds_to_keep.append(film_inds)
+
+    inds_to_keep = np.concatenate(inds_to_keep)
+    all_inds = np.ones(len(iface)).astype(bool)
+    all_inds[inds_to_keep] = False
+
+    inds_to_delete = np.where(all_inds)[0]
+
+    small_iface = iface.copy()
+    small_iface.remove_sites(inds_to_delete)
+
+    shrunk_iface = _shrink_slab_cell(
+        structure=iface,
+        pad=5.0,
+    )
+    shrunk_small_iface = _shrink_slab_cell(
+        structure=small_iface,
+        pad=5.0,
+    )
+
+    return shrunk_iface.to_json(), shrunk_small_iface.to_json()
+
+
 """
 --------------------------- REST CALLS -----------------------------
 """
@@ -1045,14 +1322,172 @@ def substrate_file_upload():
 @cross_origin()
 def convert_structure_to_three():
     json_data = request.data.decode()
+    print(json_data)
     data_dict = json.loads(json_data)
+    # print(data_dict)
 
     if len(data_dict.keys()) == 0:
         return jsonify({"atoms": [], "bonds": [], "basis": []})
     else:
-        plotting_data = _get_threejs_data(data_dict=data_dict)
+        structure = Structure.from_dict(data_dict)
+        plotting_data = _get_threejs_data(structure=structure)
 
         return jsonify(plotting_data)
+
+
+@app.route("/api/get_optimize_inputs", methods=["POST"])
+@cross_origin()
+def get_optimize_inputs():
+    data = request.form
+
+    film_miller_type = data["filmMillerType"]
+    substrate_miller_type = data["substrateMillerType"]
+    use_most_stable_substrate = "stableSubstrate" in data
+
+    miller_keys = {
+        "cubic": ["H", "K", "L"],
+        "hexagonal": ["H", "K", "I", "L"],
+    }
+
+    film_miller_index = []
+    substrate_miller_index = []
+
+    for key in miller_keys[film_miller_type]:
+        val = int(data[f"film{key}"].strip())
+        film_miller_index.append(val)
+
+    for key in miller_keys[substrate_miller_type]:
+        val = int(data[f"substrate{key}"].strip())
+        substrate_miller_index.append(val)
+
+    substrate_structure_dict = json.loads(data["substrateStructure"])
+    film_structure_dict = json.loads(data["filmStructure"])
+
+    film_sub_inds = _get_optimize_inputs(
+        film_bulk=film_structure_dict,
+        substrate_bulk=substrate_structure_dict,
+        film_miller_index=film_miller_index,
+        substrate_miller_index=substrate_miller_index,
+        use_most_stable_substrate=use_most_stable_substrate,
+    )
+
+    return_data = {
+        "maxArea": data["maxArea"],
+        "maxStrain": data["maxStrain"],
+        "substrateMillerIndex": substrate_miller_index,
+        "filmMillerIndex": film_miller_index,
+        "terminationInds": film_sub_inds,
+    }
+
+    return jsonify(return_data)
+
+
+@app.route("/api/optimize_interface", methods=["POST"])
+@cross_origin()
+def optimize_interface():
+    data = request.form
+
+    substrate_structure_dict = json.loads(data["substrateStructure"])
+    film_structure_dict = json.loads(data["filmStructure"])
+
+    use_most_stable_substrate = "stableSubstrate" in data
+
+    _max_area = data["maxArea"]
+
+    if _max_area == "":
+        max_area = None
+    else:
+        max_area = float(_max_area.strip())
+
+    max_strain = float(data["maxStrain"].strip()) / 100
+
+    film_miller_type = data["filmMillerType"]
+    substrate_miller_type = data["substrateMillerType"]
+
+    miller_keys = {
+        "cubic": ["H", "K", "L"],
+        "hexagonal": ["H", "K", "I", "L"],
+    }
+
+    film_miller_index = []
+    substrate_miller_index = []
+
+    for key in miller_keys[film_miller_type]:
+        val = int(data[f"film{key}"].strip())
+        film_miller_index.append(val)
+
+    for key in miller_keys[substrate_miller_type]:
+        val = int(data[f"substrate{key}"].strip())
+        substrate_miller_index.append(val)
+
+    # film_miller_index = []
+    # for i in data["filmMillerIndex"].split(","):
+    #     film_miller_index.append(int(i))
+
+    # substrate_miller_index = []
+    # for i in data["substrateMillerIndex"].split(","):
+    #     substrate_miller_index.append(int(i))
+
+    return_data = _optimize_interface_all(
+        substrate_bulk=substrate_structure_dict,
+        film_bulk=film_structure_dict,
+        substrate_miller_index=substrate_miller_index,
+        film_miller_index=film_miller_index,
+        use_most_stable_substrate=use_most_stable_substrate,
+        max_area=max_area,
+        max_strain=max_strain,
+    )
+
+    return jsonify(return_data)
+
+
+# @app.route("/api/optimize_interface", methods=["POST"])
+# @cross_origin()
+def optimize_interface_old():
+    data = request.form
+
+    substrate_structure_dict = json.loads(data["substrateStructure"])
+    film_structure_dict = json.loads(data["filmStructure"])
+
+    substrate_index = int(data["substrateTerminationInd"])
+    film_index = int(data["filmTerminationInd"])
+
+    use_most_stable_substrate = "stableSubstrate" in data
+
+    _max_area = data["maxArea"]
+
+    if _max_area == "":
+        max_area = None
+    else:
+        max_area = float(_max_area.strip())
+
+    max_strain = float(data["maxStrain"].strip()) / 100
+
+    film_miller_index = []
+    for i in data["filmMillerIndex"].split(","):
+        film_miller_index.append(int(i))
+
+    substrate_miller_index = []
+    for i in data["substrateMillerIndex"].split(","):
+        substrate_miller_index.append(int(i))
+
+    top_view_data, side_view_data = _optimize_interface(
+        film_bulk=film_structure_dict,
+        substrate_bulk=substrate_structure_dict,
+        film_miller_index=film_miller_index,
+        substrate_miller_index=substrate_miller_index,
+        film_index=film_index,
+        substrate_index=substrate_index,
+        max_area=max_area,
+        max_strain=max_strain,
+    )
+
+    return_data = {
+        "topViewStructure": top_view_data,
+        "sideViewStructure": side_view_data,
+    }
+
+    return jsonify(return_data)
 
 
 @app.route("/api/test_search", methods=["POST"])

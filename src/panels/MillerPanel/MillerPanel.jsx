@@ -1,6 +1,5 @@
-import React, { useContext, useState, createElement, useRef } from "react";
+import React, { useState, createElement } from "react";
 import BaseCard from "../../components/BaseCard/BaseCard.jsx";
-import AppContext from "../../components/AppContext/AppContext.jsx";
 import uuid from "react-uuid";
 import useMillerStore from "../../stores/millerStore.js";
 import useBulkStore from "../../stores/bulkStore.js";
@@ -77,12 +76,81 @@ function MillerRow(props) {
 	);
 }
 
+function MillerTable(props) {
+	return (
+		<div className='overflow-x-auto flex max-h-60 scrollbar scrollbar-w-2 scrollbar-h-2 scrollbar-thumb-rounded-full scrollbar-thumb-accent'>
+		<table className='table table-pin-rows table-pin-cols text-lg text-center'>
+			<thead className='text-lg'>
+				<tr>
+					<th>
+						{props.totalMatchImgData === "" ? (
+							<></>
+						) : (
+							<>
+								<button
+									className='btn btn-sm btn-secondary'
+									onClick={() =>
+										document
+											.getElementById(
+												"header_button"
+											)
+											.showModal()
+									}
+								>
+									View All
+								</button>
+								<dialog
+									id='header_button'
+									className='modal'
+								>
+									<div
+										className='bg-white max-w-[80vw] max-h-[80vh] flex relative rounded-2xl p-4 justify-center items-center z-20'
+										style={{
+											aspectRatio: props.totalMatchAspectRatio,
+										}}
+									>
+										<form method='dialog'>
+											<button className='btn btn-sm btn-circle btn-ghost right-2 top-2 float-right absolute z-50'>
+												✕
+											</button>
+										</form>
+										<img
+											className='object-contain z-30'
+											src={
+												"data:image/png;base64," + props.totalMatchImgData
+											}
+										/>
+									</div>
+								</dialog>
+							</>
+						)}
+					</th>
+					<td>Film Miller Index</td>
+					<td>Substrate Miller Index</td>
+					<td>Strain (%)</td>
+					<td>
+						<span>
+							A<sub>Iface</sub> (
+							<span>&#8491;</span>
+							<sup>2</sup>)
+						</span>
+					</td>
+					<td>
+						<span>
+							A<sub>Iface</sub>/(A<sub>Film</sub>{" "}
+							<span>&#183;</span> A<sub>Sub</sub>)
+							<sup>1/2</sup>
+						</span>
+					</td>
+				</tr>
+			</thead>
+			<tbody>{props.children}</tbody>
+		</table>
+	</div>
+	)
+}
+
 function MillerPanel() {
-	// const { film, substrate, millerScan } = useContext(AppContext);
-	// const [filmData, setFilmData] = film;
-	// const [substrateData, setSubstrateData] = substrate;
-	// const [millerData, setMillerData] = millerScan;
-	// console.log(useMillerStore());
 	const {
 		matchList,
 		maxArea,
@@ -111,9 +179,6 @@ function MillerPanel() {
 
 	function handleSubmit(e) {
 		// Prevent the browser from reloading the page
-
-		
-		// setMillerData({ matchData: [], matchPlot: "" });
 		e.preventDefault();
 		setLoading(true);
 		resetMiller();
@@ -144,10 +209,6 @@ function MillerPanel() {
 				setMatchList(data.matchList);
 				setTotalMatchImgData(data.totalImgData);
 				setTotalMatchAspectRatio(data.totalImgAspectRatio);
-				// setMillerData({
-				// 	matchData: data["matchData"],
-				// 	matchPlot: data["matchPlot"],
-				// });
 				setLoading(false);
 			})
 			.catch((err) => {
@@ -237,75 +298,9 @@ function MillerPanel() {
 			</div>
 			<div className='md:col-span-2'>
 				<BaseCard>
-					<div className='overflow-x-auto flex max-h-60 scrollbar scrollbar-w-2 scrollbar-h-2 scrollbar-thumb-rounded-full scrollbar-thumb-accent'>
-						<table className='table table-pin-rows table-pin-cols text-lg text-center'>
-							<thead className='text-lg'>
-								<tr>
-									<th>
-										{totalMatchImgData === "" ? (
-											<></>
-										) : (
-											<>
-												<button
-													className='btn btn-sm btn-secondary'
-													onClick={() =>
-														document
-															.getElementById(
-																"header_button"
-															)
-															.showModal()
-													}
-												>
-													View All
-												</button>
-												<dialog
-													id='header_button'
-													className='modal'
-												>
-													<div
-														className='bg-white max-w-[80vw] max-h-[80vh] flex relative rounded-2xl p-4 justify-center items-center z-20'
-														style={{
-															aspectRatio: totalMatchAspectRatio,
-														}}
-													>
-														<form method='dialog'>
-															<button className='btn btn-sm btn-circle btn-ghost right-2 top-2 float-right absolute z-50'>
-																✕
-															</button>
-														</form>
-														<img
-															className='object-contain z-30'
-															src={
-																"data:image/png;base64," + totalMatchImgData
-															}
-														/>
-													</div>
-												</dialog>
-											</>
-										)}
-									</th>
-									<td>Film Miller Index</td>
-									<td>Substrate Miller Index</td>
-									<td>Strain (%)</td>
-									<td>
-										<span>
-											A<sub>Iface</sub> (
-											<span>&#8491;</span>
-											<sup>2</sup>)
-										</span>
-									</td>
-									<td>
-										<span>
-											A<sub>Iface</sub>/(A<sub>Film</sub>{" "}
-											<span>&#183;</span> A<sub>Sub</sub>)
-											<sup>1/2</sup>
-										</span>
-									</td>
-								</tr>
-							</thead>
-							<tbody>{tableRows}</tbody>
-						</table>
-					</div>
+					<MillerTable totalMatchImgData={totalMatchImgData} totalMatchAspectRatio={totalMatchAspectRatio} >
+						{tableRows}
+					</MillerTable>
 					{loading ? (
 						<div className='flex items-center justify-center w-[100%] mt-4'>
 							<span className='loading loading-bars loading-lg'></span>
