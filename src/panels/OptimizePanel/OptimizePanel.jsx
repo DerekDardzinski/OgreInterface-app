@@ -208,7 +208,9 @@ function OptimizeRow(props) {
 			<th>
 				<button
 					className='btn btn-sm btn-secondary'
-					onClick={() => props.setInterfaceViewData(props.data)}
+					onClick={() => {
+						props.setInterfaceViewData(props.data);
+					}}
 				>
 					View
 				</button>

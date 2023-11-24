@@ -8,6 +8,7 @@ import {
 	OrthographicCamera,
 	Bounds,
 	useBounds,
+	Environment,
 } from "@react-three/drei";
 import * as THREE from "three";
 
@@ -16,7 +17,6 @@ function Display(props) {
 	const dispRef = useRef();
 	const lightRef = useRef();
 	const lightRef2 = useRef();
-	console.log("DPR =", props.dpr)
 
 	return (
 		<div ref={dispRef} className='w-[100%] h-[100%] bg-white'>
@@ -26,7 +26,10 @@ function Display(props) {
 				orthographic={true}
 			>
 				<Bounds fit clip margin={1.4}>
+					<Center>
 					{props.children}
+					</Center>
+
 				</Bounds>
 
 				<ambientLight intensity={0.1} />
@@ -62,6 +65,7 @@ function Display(props) {
 						}
 					}}
 				/>
+				{/* <Environment preset="city" /> */}
 			</Canvas>
 		</div>
 	);

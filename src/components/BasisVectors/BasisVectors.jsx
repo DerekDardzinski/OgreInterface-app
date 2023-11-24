@@ -10,7 +10,7 @@ function Axis({ scale = [0.8, 0.05, 0.05], color, rotation }) {
 		<group rotation={rotation}>
 			<mesh position={[0.4, 0, 0]}>
 				<boxGeometry args={scale} />
-				<meshBasicMaterial color={color} toneMapped={false} />
+				<meshStandardMaterial color={color} />
 			</mesh>
 		</group>
 	);
@@ -269,7 +269,7 @@ export const BasisVectors = ({
 	return (
 		<group scale={25} {...props}>
 			<Sphere args={[0.225, 32, 32]}>
-				<meshBasicMaterial
+				<meshStandardMaterial
 					attach='material'
 					color={"grey"}
 				/>

@@ -653,12 +653,12 @@ def _get_threejs_data(
     structure: Structure,
     charge_dict: tp.Optional[tp.Dict[str, float]] = None,
 ):
-    if charge_dict is None:
-        oxi_guess = structure.composition.oxi_state_guesses()
-        oxi_guess = oxi_guess or [{e.symbol: 0 for e in structure.composition}]
-        oxi_guess = oxi_guess[0]
-    else:
-        oxi_guess = charge_dict
+    # if charge_dict is None:
+    #     oxi_guess = structure.composition.oxi_state_guesses()
+    #     oxi_guess = oxi_guess or [{e.symbol: 0 for e in structure.composition}]
+    #     oxi_guess = oxi_guess[0]
+    # else:
+    #     oxi_guess = charge_dict
 
     unique_zs = np.unique(structure.atomic_numbers)
     color_dict = {
@@ -672,29 +672,28 @@ def _get_threejs_data(
     default_radius_dict = {}
 
     for z1, z2 in z_combos:
-        r_covalent = covalent_radii[z1] + covalent_radii[z2]
+        # r_covalent = covalent_radii[z1] + covalent_radii[z2]
 
         s1 = chemical_symbols[z1]
         s2 = chemical_symbols[z2]
 
-        charge1 = oxi_guess[s1]
-        charge2 = oxi_guess[s2]
+        # charge1 = oxi_guess[s1]
+        # charge2 = oxi_guess[s2]
 
-        sign = np.sign(charge1 * charge2)
+        # sign = np.sign(charge1 * charge2)
 
         key = f"{s1}-{s2}"
 
-        if sign <= 0:
+        # if sign <= 0:
+        #     r_default = 1.4 * r_covalent
+        # else:
+        #     r_default = 0.0
+
+        if len(z_combos) > 1 and z1 != z2:
+            r_covalent = covalent_radii[z1] + covalent_radii[z2]
             r_default = 1.4 * r_covalent
         else:
             r_default = 0.0
-
-        # if len(z_combos) > 1 and z1 != z2:
-        #     r_vdw = vdw_radii[z1] + vdw_radii[z2]
-        #     r_covalent = covalent_radii[z1] + covalent_radii[z2]
-        #     # r_default = 0.5 * (r_vdw + r_covalent)
-        # else:
-        #     r_default = 0.0
 
         default_radius_dict[key] = float(r_default)
 
@@ -1322,7 +1321,6 @@ def substrate_file_upload():
 @cross_origin()
 def convert_structure_to_three():
     json_data = request.data.decode()
-    print(json_data)
     data_dict = json.loads(json_data)
     # print(data_dict)
 
@@ -1330,7 +1328,9 @@ def convert_structure_to_three():
         return jsonify({"atoms": [], "bonds": [], "basis": []})
     else:
         structure = Structure.from_dict(data_dict)
+        s = time.time()
         plotting_data = _get_threejs_data(structure=structure)
+        print(f"Time to get structure: {time.time() - s:.4f}")
 
         return jsonify(plotting_data)
 

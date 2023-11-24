@@ -15,16 +15,9 @@ import UnitCell from "../UnitCell/UnitCell.jsx";
 import DisplayCard from "../DisplayCard/DisplayCard.jsx";
 import { BasisVectors } from "../BasisVectors/BasisVectors.jsx";
 import { GizmoHelper } from "../BasisVectors/GizmoHelper.jsx";
-import {
-	SpotLight,
-	Stage,
-	useBounds,
-	Hud,
-	OrthographicCamera,
-} from "@react-three/drei";
+import { SpotLight, Stage, useBounds } from "@react-three/drei";
 import { invalidate, useFrame, useThree } from "@react-three/fiber";
 import * as THREE from "three";
-import * as BufferGeometryUtils from "three/addons/utils/BufferGeometryUtils.js";
 import uuid from "react-uuid";
 import Graph from "graphology";
 // import { get, post } from "../../utils/requests.js";
@@ -96,71 +89,21 @@ function Button(props) {
 	);
 }
 
-// function ShowStructure({ viewGraph }) {
-// 	const data = useMemo(() => {
-// 		console.log("SHOWING STRUCTURE");
-// 		const atoms = [];
-// 		const bonds = [];
-// 		viewGraph.forEachNode((node, attributes) => {
-// 			if ((viewGraph.degree(node) > 0) | attributes.inCell) {
-// 				atoms.push(
-// 					<Atom
-// 						key={uuid()}
-// 						position={attributes.position}
-// 						color={attributes.color}
-// 						radius={attributes.radius}
-// 					/>
-// 				);
-// 			}
-// 		});
-
-// 		viewGraph.forEachEdge(
-// 			(
-// 				edge,
-// 				attributes,
-// 				source,
-// 				target,
-// 				sourceAttributes,
-// 				targetAttributes
-// 			) => {
-// 				attributes.bonds.forEach((bondProps, index) => {
-// 					bonds.push(<Bond key={uuid()} {...bondProps} />);
-// 				});
-// 			}
-// 		);
-
-// 		return { atoms: atoms, bonds: bonds };
-// 	}, [viewGraph]);
-
-// 	return (
-// 		<>
-// 			{data.atoms}
-// 			{data.bonds}
-// 		</>
-// 	);
-// }
-
-function StructureGeometry({ viewGraph }) {
+function ShowStructure({ viewGraph }) {
 	const data = useMemo(() => {
-		console.log("STRUCTURE GEOMETRY MEMO")
-		const geoms = [];
+		console.log("SHOWING STRUCTURE");
+		const atoms = [];
+		const bonds = [];
 		viewGraph.forEachNode((node, attributes) => {
 			if ((viewGraph.degree(node) > 0) | attributes.inCell) {
-				const atom = new THREE.SphereGeometry(
-					attributes.radius,
-					32,
-					32
+				atoms.push(
+					<Atom
+						key={uuid()}
+						position={attributes.position}
+						color={attributes.color}
+						radius={attributes.radius}
+					/>
 				);
-				atom.translate(...attributes.position);
-				const nVertices = atom.getAttribute("position").count;
-				const rgb = new THREE.Color(attributes.color).toArray();
-				const colorArray = new Array(nVertices).fill(rgb).flat();
-				const colorAttribute = new THREE.BufferAttribute(
-					new Float32Array(colorArray),
-					3
-				);
-				atom.setAttribute("color", colorAttribute);
-				geoms.push(atom);
 			}
 		});
 
@@ -174,66 +117,20 @@ function StructureGeometry({ viewGraph }) {
 				targetAttributes
 			) => {
 				attributes.bonds.forEach((bondProps, index) => {
-					let toPosition = new THREE.Vector3().fromArray(
-						bondProps.toPosition
-					);
-					let fromPosition = new THREE.Vector3().fromArray(
-						bondProps.fromPosition
-					);
-					let bondVector = new THREE.Vector3().subVectors(
-						toPosition,
-						fromPosition
-					);
-					let normBondVector = new THREE.Vector3()
-						.add(bondVector)
-						.divideScalar(bondVector.length());
-					let initOrientation = new THREE.Vector3().fromArray([
-						0.0, 1.0, 0.0,
-					]);
-					let bondCenter = new THREE.Vector3()
-						.addVectors(toPosition, fromPosition)
-						.multiplyScalar(0.5);
-					let quat = new THREE.Quaternion().setFromUnitVectors(
-						initOrientation,
-						normBondVector
-					);
-					let radius = 0.15;
-					const bond = new THREE.CylinderGeometry(
-						0.15,
-						0.15,
-						bondVector.length(),
-						32,
-						1
-					);
-					bond.applyQuaternion(quat);
-					bond.translate(bondCenter);
-					const nVertices = bond.getAttribute("position").count;
-					const rgb = new THREE.Color(bondProps.color).toArray();
-					const colorArray = new Array(nVertices).fill(rgb).flat();
-					const colorAttribute = new THREE.BufferAttribute(
-						new Float32Array(colorArray),
-						3
-					);
-					bond.setAttribute("color", colorAttribute);
-					geoms.push(bond);
+					bonds.push(<Bond key={uuid()} {...bondProps} />);
 				});
-
-				// attributes.bonds.forEach((bondProps, index) => {
-				// 	bonds.push(<Bond key={uuid()} {...bondProps} />);
-				// });
 			}
 		);
 
-		// return { atoms: atoms, bonds: bonds };
-		if (geoms.length > 0) {
-			const mergedGeoms = BufferGeometryUtils.mergeGeometries(geoms);
-			return mergedGeoms;
-		} else {
-			return new THREE.BufferGeometry();
-		}
+		return { atoms: atoms, bonds: bonds };
 	}, [viewGraph]);
 
-	return data;
+	return (
+		<>
+			{data.atoms}
+			{data.bonds}
+		</>
+	);
 }
 
 function getViewGraph({ structureGraph, bondCutoffs }) {
@@ -259,6 +156,14 @@ function getViewGraph({ structureGraph, bondCutoffs }) {
 	return newGraph;
 }
 
+function BoundsRefresher({ structureGraph, groupRef }) {
+	const bounds = useBounds();
+	useEffect(() => {
+		// bounds.refresh().clip().fit();
+		bounds.refresh(groupRef.current).clip().fit();
+	}, [structureGraph]);
+}
+
 function Slider(props) {
 	const species = props.bondKey.split("-");
 
@@ -280,11 +185,7 @@ function Slider(props) {
 					style={{
 						appearance: "none",
 						// background: `linear-gradient(to right, ${props.speciesColors[species[0]]}, ${props.speciesColors[species[0]]} 40%, #dddddd, ${props.speciesColors[species[1]]}) 60%, ${props.speciesColors[species[1]]})`,
-						background: `linear-gradient(to right, ${
-							props.speciesColors[species[0]]
-						} 15%, #eeeeee, ${
-							props.speciesColors[species[1]]
-						} 85%)`,
+						background: `linear-gradient(to right, ${props.speciesColors[species[0]]} 15%, #eeeeee, ${props.speciesColors[species[1]]} 85%)`,
 						borderRadius: "9999px",
 						WebkitAppearance: "none",
 					}}
@@ -306,8 +207,8 @@ function Slider(props) {
 }
 
 function StructureView(props) {
-	const structure = props.structure;
-	const label = props.label;
+	const structure = props.structure
+	const label = props.label
 
 	const [structureGraph, setStructureGraph] = useState(new Graph());
 	const [viewGraph, setViewGraph] = useState(new Graph());
@@ -352,7 +253,7 @@ function StructureView(props) {
 		animate: false,
 	});
 	const [takeScreenShot, setTakeScreenShot] = useState(false);
-	const [dpr, setDpr] = useState(1);
+	const [dpr, setDpr] = useState(1)
 	const groupRef = useRef(new THREE.Object3D());
 
 	useEffect(() => {
@@ -397,6 +298,21 @@ function StructureView(props) {
 			<Button label={"c*"} setAnimateView={setAnimateView} />
 		</div>
 	);
+
+	// let labelElements = [];
+	// labelData.forEach((v) => {
+	// 	const props = { key: uuid(), ...v[1] };
+	// 	labelElements.push(createElement(v[0], props, v[2]));
+	// });
+
+	// const label = createElement(
+	// 	"span",
+	// 	{
+	// 		className: "inline-block h-[100%] w-[100%] text-center",
+	// 		key: uuid(),
+	// 	},
+	// 	labelElements
+	// );
 
 	const bondSliders = [];
 	speciesPairs.forEach((k, index) => {
@@ -466,27 +382,20 @@ function StructureView(props) {
 		</div>
 	);
 
-	const mergedGeoms = StructureGeometry({ viewGraph: viewGraph });
-
 	return (
 		<DisplayCard topContents={topRow} bottomContents={bottomButtons}>
 			{structureGraph.order > 0 ? (
 				<Display dpr={dpr}>
 					<group ref={groupRef} position={centerShift}>
-						<mesh
-							geometry={mergedGeoms}
-							material={
-								new THREE.MeshPhongMaterial({
-									vertexColors: true,
-								})
-							}
+						<ShowStructure
+							viewGraph={viewGraph}
+							bondCutoffs={bondCutoffs}
 						/>
-						{unitCell}
+						{/* {unitCell} */}
 					</group>
-					<Viewcube basis={basis} />
+
 					<GizmoHelper alignment='bottom-left' margin={[60, 60]}>
-						<ambientLight intensity={3.0} />
-						<pointLight position={[0, 0, 100]} intensity={4000} />
+						<ambientLight intensity={2.0} />
 						<BasisVectors
 							basis={basis}
 							axisColors={["red", "green", "blue"]}
@@ -509,52 +418,6 @@ function StructureView(props) {
 				<></>
 			)}
 		</DisplayCard>
-	);
-}
-
-function Viewcube({
-	renderPriority = 1,
-	matrix = new THREE.Matrix4(),
-	basis,
-	...props
-}) {
-	const mesh = useRef(null);
-	const { camera } = useThree();
-	const [hovered, hover] = useState(null);
-
-	useFrame(() => {
-		// Spin mesh to the inverse of the default cameras matrix
-		matrix.copy(camera.matrix).invert();
-		mesh.current.quaternion.setFromRotationMatrix(matrix);
-	});
-
-	return (
-		<Hud renderPriority={renderPriority}>
-			<OrthographicCamera makeDefault position={[0, 0, 100]} />
-
-			<mesh
-				ref={mesh}
-				//position={[size.width / 2 - 120, size.height / 2 - 120, 0]}
-				onPointerOut={(e) => hover(null)}
-				onPointerMove={(e) => hover(e.face.materialIndex)}
-			>
-				{[...Array(6)].map((_, index) => (
-					<meshLambertMaterial
-						attach={`material-${index}`}
-						key={index}
-						color={hovered === index ? "orange" : "hotpink"}
-					/>
-				))}
-				{/* <boxGeometry args={[80, 80, 80]} /> */}
-				<BasisVectors
-					basis={basis}
-					axisColors={["red", "green", "blue"]}
-					labelColor='black'
-				/>
-			</mesh>
-			<ambientLight intensity={2} />
-			<pointLight position={[0, 0, 100]} intensity={2000} />
-		</Hud>
 	);
 }
 
