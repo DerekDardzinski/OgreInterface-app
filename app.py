@@ -170,6 +170,8 @@ def _get_neighbor_graph(
             cell_bound_shifts[i] = np.vstack(all_shifts)
 
     atoms = ogre_utils.get_atoms(rounded_structure)
+    print("PBC = ", structure.lattice.pbc)
+    atoms.set_pbc(structure.lattice.pbc)
     init_from_idx, init_to_idx, init_d, init_to_image = neighbour_list(
         "ijdS",
         atoms=atoms,
@@ -1322,12 +1324,18 @@ def substrate_file_upload():
 def convert_structure_to_three():
     json_data = request.data.decode()
     data_dict = json.loads(json_data)
-    # print(data_dict)
 
     if len(data_dict.keys()) == 0:
         return jsonify({"atoms": [], "bonds": [], "basis": []})
     else:
         structure = Structure.from_dict(data_dict)
+
+        if not structure.lattice.pbc[-1]:
+            structure = _shrink_slab_cell(
+                structure=structure,
+                pad=3.0,
+            )
+
         s = time.time()
         plotting_data = _get_threejs_data(structure=structure)
         print(f"Time to get structure: {time.time() - s:.4f}")

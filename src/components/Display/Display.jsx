@@ -9,9 +9,9 @@ import {
 	Bounds,
 	useBounds,
 	Environment,
+	CameraControls,
 } from "@react-three/drei";
 import * as THREE from "three";
-
 
 function Display(props) {
 	const dispRef = useRef();
@@ -26,10 +26,7 @@ function Display(props) {
 				orthographic={true}
 			>
 				<Bounds fit clip margin={1.4}>
-					<Center>
 					{props.children}
-					</Center>
-
 				</Bounds>
 
 				<ambientLight intensity={0.1} />
@@ -73,6 +70,6 @@ function Display(props) {
 
 Display.defaultProps = {
 	dpr: 1,
-}
+};
 
 export default Display;
