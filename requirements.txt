@@ -26,7 +26,7 @@ monty==2023.9.25
 mpmath==1.3.0
 networkx==3.2
 numpy==1.26.1
-OgreInterface==1.2.1
+OgreInterface==1.2.4
 packaging==23.2
 palettable==3.3.3
 pandas==2.0.0

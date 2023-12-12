@@ -2,21 +2,27 @@ import { create } from "zustand";
 
 const useBulkStore = create((set) => ({
 	filmStructure: "",
-	filmLabel: "",
+	filmFormula: "",
+	filmSpaceGroup: "",
 	substrateStructure: "",
-	substrateLabel: "",
+	substrateFormula: "",
+	substrateSpaceGroup: "",
 	bulkUploaded: false,
 	setBulkUploaded: () => set({bulkUploaded: true}),
 	setFilmStructure: (data) => set({ filmStructure: data }),
 	setSubstrateStructure: (data) => set({ substrateStructure: data }),
-	setFilmLabel: (label) => set({ filmLabel: label }),
-	setSubstrateLabel: (label) => set({ substrateLabel: label }),
+	setFilmFormula: (label) => set({ filmFormula: label }),
+	setSubstrateFormula: (label) => set({ substrateFormula: label }),
+	setFilmSpaceGroup: (label) => set({ filmSpaceGroup: label }),
+	setSubstrateSpaceGroup: (label) => set({ substrateSpaceGroup: label }),
 	resetBulk: () =>
 		set({
 			filmStructure: "",
+			filmFormula: "",
+			filmSpaceGroup: "",
 			substrateStructure: "",
-			filmLabel: "",
-			substrateLabel: "",
+			substrateFormula: "",
+			substrateSpaceGroup: "",
 			bulkUploaded: false,
 		}),
 }));

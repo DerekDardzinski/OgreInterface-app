@@ -136,6 +136,198 @@ def _get_formatted_miller_index(miller_index: str) -> str:
 
 def _get_neighbor_graph(
     structure: Structure,
+    is_interface: bool = False,
+) -> tp.Dict[str, tp.List[tp.Dict[str, tp.Any]]]:
+    rounded_structure = ogre_utils.get_rounded_structure(
+        structure,
+        tol=6,
+    )
+
+    lattice = rounded_structure.lattice
+    composition = rounded_structure.composition.reduced_formula
+    atomic_numbers = rounded_structure.atomic_numbers
+
+    # cell_bound_shifts = {}
+
+    frac_coords = rounded_structure.frac_coords
+
+    # cell_bound_shifts = {}
+
+    # for i, frac_coord in enumerate(frac_coords):
+    #     zero_elements = np.isclose(frac_coord, 0.0)
+
+    #     if zero_elements.sum() > 0:
+    #         image_shift = list(
+    #             itertools.product([0, 1], repeat=zero_elements.sum())
+    #         )[1:]
+
+    #         all_shifts = []
+
+    #         for shift in image_shift:
+    #             image = np.zeros(3).astype(int)
+    #             image[zero_elements] += np.array(shift).astype(int)
+    #             all_shifts.append(image)
+
+    #         cell_bound_shifts[i] = np.vstack(all_shifts)
+
+    atoms = ogre_utils.get_atoms(rounded_structure)
+    atoms.set_pbc(structure.lattice.pbc)
+    from_idx, to_idx, d, to_image = neighbour_list(
+        "ijdS",
+        atoms=atoms,
+        cutoff=5.0,
+    )
+
+    to_image = to_image.astype(int)
+    from_image = np.zeros((len(from_idx), 3)).astype(int)
+
+    to_atom_keys = np.c_[to_idx, to_image]
+    from_atom_keys = np.c_[from_idx, from_image]
+
+    in_cell_atom_keys = np.unique(from_atom_keys, axis=0)
+
+    in_cell_atom_set = {
+        ",".join([str(i) for i in key]) for key in in_cell_atom_keys
+    }
+
+    all_atom_keys = np.concatenate(
+        [to_atom_keys, from_atom_keys],
+        axis=0,
+    )
+    unique_atom_keys = np.unique(all_atom_keys, axis=0)
+
+    atom_info_dict = {}
+
+    graph = nx.Graph()
+
+    for key in unique_atom_keys:
+        node = ",".join([str(i) for i in key])
+        idx = key[0]
+        image = key[1:]
+        frac_coord = frac_coords[idx] + image
+        cart_coord = lattice.get_cartesian_coords(frac_coord)
+
+        Z = int(atomic_numbers[idx])
+        color = vesta_colors[Z].astype(float).tolist()
+
+        node_attributes = {
+            "inCell": node in in_cell_atom_set,
+            "position": cart_coord,
+            "fracPosition": frac_coord.astype(float).tolist(),
+            "color": to_hex(color),
+            "atomicNumber": Z,
+            "radius": _get_radius(Z),
+            "chemicalSymbol": chemical_symbols[Z],
+            "siteIndex": idx,
+        }
+
+        atom_info_dict[node] = node_attributes
+
+        graph_node_attributes = node_attributes.copy()
+
+        del graph_node_attributes["siteIndex"]
+
+        graph_node_attributes["position"] = _three_flip(
+            node_attributes["position"].astype(float).tolist(),
+        )
+
+        # graph_node_attributes["fracPosition"] = _three_flip(
+        #     node_attributes["fracPosition"].astype(float).tolist(),
+        # )
+
+        graph.add_node(node, attributes=graph_node_attributes)
+
+    for i in range(len(to_idx)):
+        to_key = ",".join([str(j) for j in to_atom_keys[i]])
+        from_key = ",".join([str(j) for j in from_atom_keys[i]])
+
+        sorted_edge = sorted([to_key, from_key])
+        to_attributes = atom_info_dict[to_key]
+        from_attributes = atom_info_dict[from_key]
+
+        to_idx = to_attributes["siteIndex"]
+        from_idx = from_attributes["siteIndex"]
+
+        if is_interface:
+            to_is_film = structure[to_idx].properties["is_film"]
+            from_is_film = structure[from_idx].properties["is_film"]
+            inculde_bond = to_is_film == from_is_film
+        else:
+            inculde_bond = True
+
+        if inculde_bond:
+            to_position = to_attributes["position"]
+            to_radius = to_attributes["radius"]
+            to_Z = to_attributes["atomicNumber"]
+
+            from_position = from_attributes["position"]
+            from_radius = from_attributes["radius"]
+            from_Z = from_attributes["atomicNumber"]
+
+            sorted_Z = sorted([to_Z, from_Z])
+            atomic_number_key = f"{chemical_symbols[sorted_Z[0]]}-{chemical_symbols[sorted_Z[1]]}"
+
+            bond_vector = to_position - from_position
+            norm_bond_vector = bond_vector / np.linalg.norm(bond_vector)
+
+            from_atom_edge = from_position + (from_radius * norm_bond_vector)
+            to_atom_edge = to_position - (to_radius * norm_bond_vector)
+
+            center_position = 0.5 * (from_atom_edge + to_atom_edge)
+            from_bond_data = {
+                "toPosition": _three_flip(
+                    center_position.astype(float).tolist()
+                ),
+                "fromPosition": _three_flip(
+                    from_position.astype(float).tolist()
+                ),
+                "color": from_attributes["color"],
+            }
+            to_bond_data = {
+                "toPosition": _three_flip(
+                    center_position.astype(float).tolist()
+                ),
+                "fromPosition": _three_flip(
+                    to_position.astype(float).tolist()
+                ),
+                "color": to_attributes["color"],
+            }
+
+            graph.add_edge(
+                sorted_edge[0],
+                sorted_edge[1],
+                key=f"{sorted_edge[0]}->{sorted_edge[1]}",
+                attributes={
+                    "bondLength": float(d[i]),
+                    "atomicNumberKey": atomic_number_key,
+                    "bonds": [
+                        from_bond_data,
+                        to_bond_data,
+                    ],
+                },
+            )
+
+    graph_data = nx.node_link_data(
+        graph,
+        source="source",
+        target="target",
+        name="key",
+        key="key",
+        link="edges",
+    )
+
+    graphology_data = {
+        "attributes": {"name": composition},
+        "nodes": graph_data["nodes"],
+        "edges": graph_data["edges"],
+    }
+
+    return graphology_data
+
+
+def _get_neighbor_graph_old(
+    structure: Structure,
+    is_interface: bool = False,
 ) -> tp.Dict[str, tp.List[tp.Dict[str, tp.Any]]]:
     rounded_structure = ogre_utils.get_rounded_structure(
         structure,
@@ -170,12 +362,11 @@ def _get_neighbor_graph(
             cell_bound_shifts[i] = np.vstack(all_shifts)
 
     atoms = ogre_utils.get_atoms(rounded_structure)
-    print("PBC = ", structure.lattice.pbc)
     atoms.set_pbc(structure.lattice.pbc)
     init_from_idx, init_to_idx, init_d, init_to_image = neighbour_list(
         "ijdS",
         atoms=atoms,
-        cutoff=6.0,
+        cutoff=5.0,
     )
 
     init_to_image = init_to_image.astype(int)
@@ -245,11 +436,15 @@ def _get_neighbor_graph(
             "atomicNumber": Z,
             "radius": _get_radius(Z),
             "chemicalSymbol": chemical_symbols[Z],
+            "siteIndex": idx,
         }
 
         atom_info_dict[node] = node_attributes
 
         graph_node_attributes = node_attributes.copy()
+
+        del graph_node_attributes["siteIndex"]
+
         graph_node_attributes["position"] = _three_flip(
             node_attributes["position"].astype(float).tolist(),
         )
@@ -264,50 +459,67 @@ def _get_neighbor_graph(
         to_attributes = atom_info_dict[to_key]
         from_attributes = atom_info_dict[from_key]
 
-        to_position = to_attributes["position"]
-        to_radius = to_attributes["radius"]
-        to_Z = to_attributes["atomicNumber"]
+        to_idx = to_attributes["siteIndex"]
+        from_idx = from_attributes["siteIndex"]
 
-        from_position = from_attributes["position"]
-        from_radius = from_attributes["radius"]
-        from_Z = from_attributes["atomicNumber"]
+        if is_interface:
+            to_is_film = structure[to_idx].properties["is_film"]
+            from_is_film = structure[from_idx].properties["is_film"]
+            inculde_bond = to_is_film == from_is_film
+        else:
+            inculde_bond = True
 
-        sorted_Z = sorted([to_Z, from_Z])
-        atomic_number_key = (
-            f"{chemical_symbols[sorted_Z[0]]}-{chemical_symbols[sorted_Z[1]]}"
-        )
+        if inculde_bond:
+            to_position = to_attributes["position"]
+            to_radius = to_attributes["radius"]
+            to_Z = to_attributes["atomicNumber"]
 
-        bond_vector = to_position - from_position
-        norm_bond_vector = bond_vector / np.linalg.norm(bond_vector)
+            from_position = from_attributes["position"]
+            from_radius = from_attributes["radius"]
+            from_Z = from_attributes["atomicNumber"]
 
-        from_atom_edge = from_position + (from_radius * norm_bond_vector)
-        to_atom_edge = to_position - (to_radius * norm_bond_vector)
+            sorted_Z = sorted([to_Z, from_Z])
+            atomic_number_key = f"{chemical_symbols[sorted_Z[0]]}-{chemical_symbols[sorted_Z[1]]}"
 
-        center_position = 0.5 * (from_atom_edge + to_atom_edge)
-        from_bond_data = {
-            "toPosition": _three_flip(center_position.astype(float).tolist()),
-            "fromPosition": _three_flip(from_position.astype(float).tolist()),
-            "color": from_attributes["color"],
-        }
-        to_bond_data = {
-            "toPosition": _three_flip(center_position.astype(float).tolist()),
-            "fromPosition": _three_flip(to_position.astype(float).tolist()),
-            "color": to_attributes["color"],
-        }
+            bond_vector = to_position - from_position
+            norm_bond_vector = bond_vector / np.linalg.norm(bond_vector)
 
-        graph.add_edge(
-            sorted_edge[0],
-            sorted_edge[1],
-            key=f"{sorted_edge[0]}->{sorted_edge[1]}",
-            attributes={
-                "bondLength": float(d[i]),
-                "atomicNumberKey": atomic_number_key,
-                "bonds": [
-                    from_bond_data,
-                    to_bond_data,
-                ],
-            },
-        )
+            from_atom_edge = from_position + (from_radius * norm_bond_vector)
+            to_atom_edge = to_position - (to_radius * norm_bond_vector)
+
+            center_position = 0.5 * (from_atom_edge + to_atom_edge)
+            from_bond_data = {
+                "toPosition": _three_flip(
+                    center_position.astype(float).tolist()
+                ),
+                "fromPosition": _three_flip(
+                    from_position.astype(float).tolist()
+                ),
+                "color": from_attributes["color"],
+            }
+            to_bond_data = {
+                "toPosition": _three_flip(
+                    center_position.astype(float).tolist()
+                ),
+                "fromPosition": _three_flip(
+                    to_position.astype(float).tolist()
+                ),
+                "color": to_attributes["color"],
+            }
+
+            graph.add_edge(
+                sorted_edge[0],
+                sorted_edge[1],
+                key=f"{sorted_edge[0]}->{sorted_edge[1]}",
+                attributes={
+                    "bondLength": float(d[i]),
+                    "atomicNumberKey": atomic_number_key,
+                    "bonds": [
+                        from_bond_data,
+                        to_bond_data,
+                    ],
+                },
+            )
 
     graph_data = nx.node_link_data(
         graph,
@@ -655,59 +867,55 @@ def _get_threejs_data(
     structure: Structure,
     charge_dict: tp.Optional[tp.Dict[str, float]] = None,
 ):
-    # if charge_dict is None:
-    #     oxi_guess = structure.composition.oxi_state_guesses()
-    #     oxi_guess = oxi_guess or [{e.symbol: 0 for e in structure.composition}]
-    #     oxi_guess = oxi_guess[0]
-    # else:
-    #     oxi_guess = charge_dict
-
     unique_zs = np.unique(structure.atomic_numbers)
     color_dict = {
         chemical_symbols[z]: to_hex(vesta_colors[z]) for z in unique_zs
     }
     z_combos = list(itertools.combinations_with_replacement(unique_zs, 2))
 
-    # r_vdw = np.array([vdw_radii[z] for z in unique_zs])
-    # r_covalent = np.array([covalent_radii[z] for z in unique_zs])
-
     default_radius_dict = {}
 
     for z1, z2 in z_combos:
-        # r_covalent = covalent_radii[z1] + covalent_radii[z2]
-
         s1 = chemical_symbols[z1]
         s2 = chemical_symbols[z2]
 
-        # charge1 = oxi_guess[s1]
-        # charge2 = oxi_guess[s2]
-
-        # sign = np.sign(charge1 * charge2)
-
         key = f"{s1}-{s2}"
-
-        # if sign <= 0:
-        #     r_default = 1.4 * r_covalent
-        # else:
-        #     r_default = 0.0
 
         if len(z_combos) > 1 and z1 != z2:
             r_covalent = covalent_radii[z1] + covalent_radii[z2]
-            r_default = 1.4 * r_covalent
+            # r_vdw = vdw_radii[z1] + vdw_radii[z2]
+            # r_default = min(r_vdw, 4.0)
+            # r_default = min(0.5 * (r_covalent + r_vdw), 4.0)
+            r_default = min(1.4 * r_covalent, 4.0)
         else:
             r_default = 0.0
 
         default_radius_dict[key] = float(r_default)
 
+    site_props = structure.site_properties
+
+    additionalProps = {}
+
+    if "is_film" in site_props:
+        is_film = np.array(site_props["is_film"])
+        is_sub = np.array(site_props["is_sub"])
+        c_coords = structure.frac_coords[:, -1]
+        film_bot = c_coords[is_film].min()
+        sub_top = c_coords[is_sub].min()
+        plane_shift = (0.5 * (film_bot + sub_top)) - 1
+        additionalProps["interfacePlaneShift"] = float(plane_shift)
+
     graph_data = _get_neighbor_graph(
         structure=structure,
+        is_interface="is_film" in site_props,
     )
     center_shift = structure.lattice.get_cartesian_coords([0.5, 0.5, 0.5])
 
     basis_vecs = copy.deepcopy(structure.lattice.matrix)
     norm_basis_vecs = basis_vecs / np.linalg.norm(basis_vecs, axis=1)
-    basis = [_three_flip(v) for v in norm_basis_vecs.tolist()]
-    a, b, c = basis
+    basis = [_three_flip(v) for v in basis_vecs]
+    norm_basis = [_three_flip(v) for v in norm_basis_vecs.tolist()]
+    a, b, c = norm_basis
     ab_cross = np.cross(a, b)
     ac_cross = -np.cross(a, c)
     bc_cross = np.cross(b, c)
@@ -745,9 +953,11 @@ def _get_threejs_data(
         "speciesPairs": list(default_radius_dict.keys()),
         "speciesColors": color_dict,
         "unitCell": {"points": _get_unit_cell(structure.lattice.matrix)},
+        "normBasis": norm_basis,
         "basis": basis,
         "viewData": view_info,
         "centerShift": _three_flip((-1 * center_shift).tolist()),
+        "additionalProps": additionalProps,
     }
 
 
@@ -795,18 +1005,10 @@ def _single_miller_scan(
         plot_match(match=best_match, output=stream, dpi=100)
         base64_stream = base64.b64encode(stream.getvalue()).decode()
         stream.close()
-        sub_miller_str = "".join(
-            [str(i) for i in substrate_index.astype(int).tolist()]
-        )
-        film_miller_str = "".join(
-            [str(i) for i in film_index.astype(int).tolist()]
-        )
-        formatted_sub_miller = _get_formatted_miller_index(sub_miller_str)
-        formatted_film_miller = _get_formatted_miller_index(film_miller_str)
 
         match_data = {
-            "filmMillerIndex": formatted_film_miller,
-            "substrateMillerIndex": formatted_sub_miller,
+            "filmMillerIndex": film_index.astype(int).tolist(),
+            "substrateMillerIndex": substrate_index.astype(int).tolist(),
             "matchArea": round(float(best_match.area), 3),
             "matchRelativeArea": round(
                 float(best_match.area / np.sqrt(sub_area * film_area)),
@@ -1112,6 +1314,7 @@ def _shrink_slab_cell(
         coords=rounded_struc.cart_coords,
         coords_are_cartesian=True,
         to_unit_cell=True,
+        site_properties=structure.site_properties,
     )
 
     shrunk_struc.translate_sites(
@@ -1248,7 +1451,7 @@ def _optimize_interface(
         pad=5.0,
     )
 
-    return shrunk_iface.to_json(), shrunk_small_iface.to_json()
+    return shrunk_iface.as_dict(), shrunk_small_iface.as_dict()
 
 
 """
@@ -1282,39 +1485,42 @@ def substrate_file_upload():
 
     film_struc = Structure.from_str(film_file_contents, fmt="cif")
     film_formula = film_struc.composition.reduced_formula
-    film_formula_comp = _get_formatted_formula(film_formula)
+    # film_formula_comp = _get_formatted_formula(film_formula)
     film_sg = SpacegroupAnalyzer(structure=film_struc)
     film_sg_symbol = film_sg.get_space_group_symbol()
-    film_sg_comp = _get_formatted_spacegroup(film_sg_symbol)
-    film_label = (
-        [["span", {}, "Film: "]]
-        + film_formula_comp
-        + [["span", {}, " ("]]
-        + film_sg_comp
-        + [["span", {}, ")"]]
-    )
+    # film_sg_comp = _get_formatted_spacegroup(film_sg_symbol)
+    # film_label = (
+    #     [["span", {}, "Film: "]]
+    #     + film_formula_comp
+    #     + [["span", {}, " ("]]
+    #     + film_sg_comp
+    #     + [["span", {}, ")"]]
+    # )
 
     substrate_struc = Structure.from_str(substrate_file_contents, fmt="cif")
     substrate_formula = substrate_struc.composition.reduced_formula
-    substrate_formula_comp = _get_formatted_formula(substrate_formula)
+    # substrate_formula_comp = _get_formatted_formula(substrate_formula)
     substrate_sg = SpacegroupAnalyzer(structure=substrate_struc)
     substrate_sg_symbol = substrate_sg.get_space_group_symbol()
-    substrate_sg_comp = _get_formatted_spacegroup(substrate_sg_symbol)
-    substrate_label = (
-        [["span", {}, "Substrate: "]]
-        + substrate_formula_comp
-        + [["span", {}, " ("]]
-        + substrate_sg_comp
-        + [["span", {}, ")"]]
-    )
+    # substrate_sg_comp = _get_formatted_spacegroup(substrate_sg_symbol)
+    # substrate_label = (
+    #     [["span", {}, "Substrate: "]]
+    #     + substrate_formula_comp
+    #     + [["span", {}, " ("]]
+    #     + substrate_sg_comp
+    #     + [["span", {}, ")"]]
+    # )
 
     return jsonify(
         {
-            "film": film_struc.to_json(),
+            "film": film_struc.as_dict(),
+            "filmFormula": film_formula,
             "filmSpaceGroup": film_sg_symbol,
-            "filmLabel": film_label,
-            "substrate": substrate_struc.to_json(),
-            "substrateLabel": substrate_label,
+            # "filmLabel": film_label,
+            "substrate": substrate_struc.as_dict(),
+            "substrateFormula": substrate_formula,
+            "substrateSpaceGroup": substrate_sg_symbol,
+            # "substrateLabel": substrate_label,
         }
     )
 
@@ -1322,8 +1528,9 @@ def substrate_file_upload():
 @app.route("/api/structure_to_three", methods=["POST"])
 @cross_origin()
 def convert_structure_to_three():
-    json_data = request.data.decode()
-    data_dict = json.loads(json_data)
+    data = request.form
+    # print(data["structure"])
+    data_dict = json.loads(data["structure"])
 
     if len(data_dict.keys()) == 0:
         return jsonify({"atoms": [], "bonds": [], "basis": []})

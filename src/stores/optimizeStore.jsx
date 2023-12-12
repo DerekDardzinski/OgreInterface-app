@@ -18,7 +18,7 @@ const useOptimizeStore = create((set) => ({
     filmCubic: true,
     substrateCubic: true,
     useStableSubstrate: true,
-    interfaceViewData: "",
+    interfaceViewData: (<></>),
     resetOptimize: () => set({
         maxArea: "",
         maxStrain: "",
@@ -37,7 +37,7 @@ const useOptimizeStore = create((set) => ({
         filmCubic: true,
         substrateCubic: true,
         useStableSubstrate: true,
-        interfaceViewData: "",
+        interfaceViewData: (<></>),
     }),
     setMaxArea: (value) => set({maxArea: value}),
     setMaxStrain: (value) => set({maxStrain: value}),

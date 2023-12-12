@@ -1,10 +1,10 @@
 import React, { useEffect, useState, useContext } from "react";
-import AppContext from "../AppContext/AppContext.jsx";
-import BaseCard from "../BaseCard/BaseCard.jsx";
-import useFileStore from "../../stores/fileStore.js";
-import useBulkStore from "../../stores/bulkStore.js";
-import useMillerStore from "../../stores/millerStore.js";
-import useOptimizeStore from "../../stores/optimizeStore.js";
+import AppContext from "../AppContext/AppContext";
+import BaseCard from "../BaseCard/BaseCard";
+import useFileStore from "../../stores/fileStore";
+import useBulkStore from "../../stores/bulkStore";
+import useMillerStore from "../../stores/millerStore";
+import useOptimizeStore from "../../stores/optimizeStore";
 // import { get, post } from "../../utils/requests.js";
 // import { data } from "autoprefixer";
 // Electron Inter Process Communication and dialog
@@ -18,18 +18,22 @@ const port = ipcRenderer.sendSync("get-port-number");
 // console.log("PORT:", port);
 
 function FileUploader(props) {
-	const setFilmFile = useFileStore((state) => state.setFilmFile);
-	const setSubstrateFile = useFileStore((state) => state.setSubstrateFile);
-	const filmFile = useFileStore((state) => state.filmFile);
-	const substrateFile = useFileStore((state) => state.substrateFile);
-	const setFilmStructure = useBulkStore((state) => state.setFilmStructure);
-	const setFilmLabel = useBulkStore((state) => state.setFilmLabel);
-	const setSubstrateStructure = useBulkStore(
-		(state) => state.setSubstrateStructure
-	);
-	const resetBulk = useBulkStore((state) => state.resetBulk);
-	const setSubstrateLabel = useBulkStore((state) => state.setSubstrateLabel);
-	const setBulkUploaded = useBulkStore((state) => state.setBulkUploaded);
+	const bulkStore = useBulkStore()
+	console.log(bulkStore)
+	const fileStore = useFileStore()
+	console.log(fileStore)
+	// const setFilmFile = useFileStore((state) => state.setFilmFile);
+	// const setSubstrateFile = useFileStore((state) => state.setSubstrateFile);
+	// const filmFile = useFileStore((state) => state.filmFile);
+	// const substrateFile = useFileStore((state) => state.substrateFile);
+	// const setFilmStructure = useBulkStore((state) => state.setFilmStructure);
+	// const setFilmLabel = useBulkStore((state) => state.setFilmLabel);
+	// const setSubstrateStructure = useBulkStore(
+	// 	(state) => state.setSubstrateStructure
+	// );
+	// const setSubstrateLabel = useBulkStore((state) => state.setSubstrateLabel);
+	// const setBulkUploaded = useBulkStore((state) => state.setBulkUploaded);
+	// const resetBulk = useBulkStore((state) => state.resetBulk);
 	const resetMiller = useMillerStore((state) => state.resetMiller);
 	const resetOptimize = useOptimizeStore((state) => state.resetOptimize);
 
@@ -49,15 +53,12 @@ function FileUploader(props) {
 	// }
 
 	function handleUpload() {
-		resetBulk();
+		bulkStore.resetBulk();
 		resetMiller();
 		resetOptimize();
-		// setMillerData({ matchPlot: "", matchData: [] });
-		// setFilmData("");
-		// setSubstrateData("");
 		const fd = new FormData();
-		fd.append("filmFile", filmFile);
-		fd.append("substrateFile", substrateFile);
+		fd.append("filmFile", fileStore.filmFile);
+		fd.append("substrateFile", fileStore.substrateFile);
 
 		fetch(`http://localhost:${port}/api/structure_upload`, {
 			method: "POST",
@@ -71,11 +72,13 @@ function FileUploader(props) {
 				return res.json();
 			})
 			.then((data) => {
-				setFilmStructure(data.film)
-				setFilmLabel(data.filmLabel)
-				setSubstrateStructure(data.substrate)
-				setSubstrateLabel(data.substrateLabel)
-				setBulkUploaded()
+				bulkStore.setFilmStructure(data.film)
+				bulkStore.setFilmFormula(data.filmFormula)
+				bulkStore.setFilmSpaceGroup(data.filmSpaceGroup)
+				bulkStore.setSubstrateStructure(data.substrate)
+				bulkStore.setSubstrateFormula(data.substrateFormula)
+				bulkStore.setSubstrateSpaceGroup(data.substrateSpaceGroup)
+				bulkStore.setBulkUploaded()
 				// setData(data);
 			})
 			.catch((err) => {
@@ -96,7 +99,7 @@ function FileUploader(props) {
 					type='file'
 					id='filmUpload'
 					className='file-input file-input-bordered file-input-sm w-full'
-					onChange={(e) => setFilmFile(e.target.files[0])}
+					onChange={(e) => fileStore.setFilmFile(e.target.files[0])}
 				/>
 			</div>
 			<div className='form-control w-full mb-2'>
@@ -109,7 +112,7 @@ function FileUploader(props) {
 					type='file'
 					id='substrateUpload'
 					className='file-input file-input-bordered file-input-sm w-full'
-					onChange={(e) => setSubstrateFile(e.target.files[0])}
+					onChange={(e) => fileStore.setSubstrateFile(e.target.files[0])}
 				/>
 			</div>
 			<button onClick={handleUpload} className='btn btn-secondary mt-2'>

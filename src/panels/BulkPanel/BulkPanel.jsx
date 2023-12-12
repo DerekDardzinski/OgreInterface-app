@@ -1,26 +1,26 @@
 import React, { useState, useEffect } from "react";
 import TwoColumnDisplay from "../../components/TwoColumnDisplay/TwoColumnDisplay.jsx";
-import useBulkStore from "../../stores/bulkStore.js";
+import useBulkStore from "../../stores/bulkStore";
 import { useShallow } from "zustand/react/shallow";
-import createLabelFromData from "../../utils/makeLabel.js";
+import {getFormattedFormula, getFormattedSpaceGroupSymbol} from "../../utils/makeLabel";
 
 function BulkPanel() {
-	const { filmStructure, filmLabel } = useBulkStore(
-		useShallow((state) => ({
-			filmStructure: state.filmStructure,
-			filmLabel: state.filmLabel,
-		}))
-	);
+	const bulkStore = useBulkStore()
+	const formattedFilmFormula = getFormattedFormula({formula: bulkStore.filmFormula})
+	const formattedFilmSpaceGroup = getFormattedSpaceGroupSymbol({spaceGroupSymbol: bulkStore.filmSpaceGroup})
+	const filmLabel = (
+		<span className="inline-block h-[100%] w-[100%] text-center">
+			{formattedFilmFormula} ({formattedFilmSpaceGroup})
+		</span>
+	)
 
-	const { substrateStructure, substrateLabel } = useBulkStore(
-		useShallow((state) => ({
-			substrateStructure: state.substrateStructure,
-			substrateLabel: state.substrateLabel,
-		}))
-	);
-
-	const leftLabel = createLabelFromData({ labelData: filmLabel });
-	const rightLabel = createLabelFromData({ labelData: substrateLabel });
+	const formattedSubstrateFormula = getFormattedFormula({formula: bulkStore.substrateFormula})
+	const formattedSubstrateSpaceGroup = getFormattedSpaceGroupSymbol({spaceGroupSymbol: bulkStore.substrateSpaceGroup})
+	const substrateLabel = (
+		<span className="inline-block h-[100%] w-[100%] text-center">
+			{formattedSubstrateFormula} ({formattedSubstrateSpaceGroup})
+		</span>
+	)
 
 	const bulkTitle = (
 		<div className='flex justify-center items-center text-xl font-bold'>
@@ -31,10 +31,12 @@ function BulkPanel() {
 	return (
 		<TwoColumnDisplay
 			title={bulkTitle}
-			leftStructure={filmStructure}
-			leftLabel={leftLabel}
-			rightStructure={substrateStructure}
-			rightLabel={rightLabel}
+			leftStructure={bulkStore.filmStructure}
+			leftLabel={filmLabel}
+			leftInitCameraPosition={"a"}
+			rightStructure={bulkStore.substrateStructure}
+			rightLabel={substrateLabel}
+			rightInitCameraPosition={"a"}
 		/>
 	);
 }

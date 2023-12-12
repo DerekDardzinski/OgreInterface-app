@@ -3,41 +3,48 @@ import BaseCard from "../../components/BaseCard/BaseCard.jsx";
 import uuid from "react-uuid";
 import useMillerStore from "../../stores/millerStore.js";
 import useBulkStore from "../../stores/bulkStore.js";
+import { getFormattedMillerIndex } from "../../utils/makeLabel.jsx";
 
 const { ipcRenderer } = window;
 const port = ipcRenderer.sendSync("get-port-number");
 
 function MillerRow(props) {
-	const filmMiller = props.data.filmMillerIndex;
-	const substrateMiller = props.data.substrateMillerIndex;
+	// const filmMiller = props.data.filmMillerIndex;
+	// const substrateMiller = props.data.substrateMillerIndex;
 	const area = props.data.matchArea;
 	const relativeArea = props.data.matchRelativeArea;
 	const strain = props.data.matchStrain;
 	const imgData = props.data.matchPlot;
-
-	let filmLabelElements = [];
-	filmMiller.forEach((v) => {
-		const props = { key: uuid(), ...v[1] };
-		filmLabelElements.push(createElement(v[0], props, v[2]));
+	const filmMillerIndex = getFormattedMillerIndex({
+		millerIndex: props.data.filmMillerIndex,
+	});
+	const substrateMillerIndex = getFormattedMillerIndex({
+		millerIndex: props.data.substrateMillerIndex,
 	});
 
-	const filmLabel = createElement(
-		"span",
-		{ className: "inline-block w-[100%] text-center" },
-		filmLabelElements
-	);
+	// let filmLabelElements = [];
+	// filmMiller.forEach((v) => {
+	// 	const props = { key: uuid(), ...v[1] };
+	// 	filmLabelElements.push(createElement(v[0], props, v[2]));
+	// });
 
-	let substrateLabelElements = [];
-	substrateMiller.forEach((v) => {
-		const props = { key: uuid(), ...v[1] };
-		substrateLabelElements.push(createElement(v[0], props, v[2]));
-	});
+	// const filmLabel = createElement(
+	// 	"span",
+	// 	{ className: "inline-block w-[100%] text-center" },
+	// 	filmLabelElements
+	// );
 
-	const substrateLabel = createElement(
-		"span",
-		{ className: "inline-block w-[100%] text-center" },
-		substrateLabelElements
-	);
+	// let substrateLabelElements = [];
+	// substrateMiller.forEach((v) => {
+	// 	const props = { key: uuid(), ...v[1] };
+	// 	substrateLabelElements.push(createElement(v[0], props, v[2]));
+	// });
+
+	// const substrateLabel = createElement(
+	// 	"span",
+	// 	{ className: "inline-block w-[100%] text-center" },
+	// 	substrateLabelElements
+	// );
 
 	const rowID = "miller_popup_" + uuid();
 
@@ -67,8 +74,16 @@ function MillerRow(props) {
 					</div>
 				</dialog>
 			</th>
-			<td>{filmLabel}</td>
-			<td>{substrateLabel}</td>
+			<td>
+				<span className='inline-block w-[100%] text-center'>
+					{filmMillerIndex}
+				</span>
+			</td>
+			<td>
+				<span className='inline-block w-[100%] text-center'>
+					{substrateMillerIndex}
+				</span>
+			</td>
 			<td>{strain}</td>
 			<td>{area}</td>
 			<td>{relativeArea}</td>
@@ -79,75 +94,74 @@ function MillerRow(props) {
 function MillerTable(props) {
 	return (
 		<div className='overflow-x-auto flex max-h-60 scrollbar scrollbar-w-2 scrollbar-h-2 scrollbar-thumb-rounded-full scrollbar-thumb-accent'>
-		<table className='table table-pin-rows table-pin-cols text-lg text-center'>
-			<thead className='text-lg'>
-				<tr>
-					<th>
-						{props.totalMatchImgData === "" ? (
-							<></>
-						) : (
-							<>
-								<button
-									className='btn btn-sm btn-secondary'
-									onClick={() =>
-										document
-											.getElementById(
-												"header_button"
-											)
-											.showModal()
-									}
-								>
-									View All
-								</button>
-								<dialog
-									id='header_button'
-									className='modal'
-								>
-									<div
-										className='bg-white max-w-[80vw] max-h-[80vh] flex relative rounded-2xl p-4 justify-center items-center z-20'
-										style={{
-											aspectRatio: props.totalMatchAspectRatio,
-										}}
+			<table className='table table-pin-rows table-pin-cols text-lg text-center'>
+				<thead className='text-lg'>
+					<tr>
+						<th>
+							{props.totalMatchImgData === "" ? (
+								<></>
+							) : (
+								<>
+									<button
+										className='btn btn-sm btn-secondary'
+										onClick={() =>
+											document
+												.getElementById("header_button")
+												.showModal()
+										}
 									>
-										<form method='dialog'>
-											<button className='btn btn-sm btn-circle btn-ghost right-2 top-2 float-right absolute z-50'>
-												✕
-											</button>
-										</form>
-										<img
-											className='object-contain z-30'
-											src={
-												"data:image/png;base64," + props.totalMatchImgData
-											}
-										/>
-									</div>
-								</dialog>
-							</>
-						)}
-					</th>
-					<td>Film Miller Index</td>
-					<td>Substrate Miller Index</td>
-					<td>Strain (%)</td>
-					<td>
-						<span>
-							A<sub>Iface</sub> (
-							<span>&#8491;</span>
-							<sup>2</sup>)
-						</span>
-					</td>
-					<td>
-						<span>
-							A<sub>Iface</sub>/(A<sub>Film</sub>{" "}
-							<span>&#183;</span> A<sub>Sub</sub>)
-							<sup>1/2</sup>
-						</span>
-					</td>
-				</tr>
-			</thead>
-			<tbody>{props.children}</tbody>
-		</table>
-	</div>
-	)
+										View All
+									</button>
+									<dialog
+										id='header_button'
+										className='modal'
+									>
+										<div
+											className='bg-white max-w-[80vw] max-h-[80vh] flex relative rounded-2xl p-4 justify-center items-center z-20'
+											style={{
+												aspectRatio:
+													props.totalMatchAspectRatio,
+											}}
+										>
+											<form method='dialog'>
+												<button className='btn btn-sm btn-circle btn-ghost right-2 top-2 float-right absolute z-50'>
+													✕
+												</button>
+											</form>
+											<img
+												className='object-contain z-30'
+												src={
+													"data:image/png;base64," +
+													props.totalMatchImgData
+												}
+											/>
+										</div>
+									</dialog>
+								</>
+							)}
+						</th>
+						<td>Film Miller Index</td>
+						<td>Substrate Miller Index</td>
+						<td>Strain (%)</td>
+						<td>
+							<span>
+								A<sub>Iface</sub> (<span>&#8491;</span>
+								<sup>2</sup>)
+							</span>
+						</td>
+						<td>
+							<span>
+								A<sub>Iface</sub>/(A<sub>Film</sub>{" "}
+								<span>&#183;</span> A<sub>Sub</sub>)
+								<sup>1/2</sup>
+							</span>
+						</td>
+					</tr>
+				</thead>
+				<tbody>{props.children}</tbody>
+			</table>
+		</div>
+	);
 }
 
 function MillerPanel() {
@@ -185,10 +199,9 @@ function MillerPanel() {
 
 		// Read the form data
 		const form = e.target;
-		console.log(form)
 		const fd = new FormData(form);
-		fd.append("filmStructure", filmStructure);
-		fd.append("substrateStructure", substrateStructure);
+		fd.append("filmStructure", JSON.stringify(filmStructure));
+		fd.append("substrateStructure", JSON.stringify(substrateStructure));
 
 		// You can pass formData as a fetch body directly:
 		fetch(`http://localhost:${port}/api/miller_scan`, {
@@ -262,7 +275,8 @@ function MillerPanel() {
 							</div>
 							<div>
 								<label className='text-lg font-medium mb-1'>
-									Max Interface Area (<span>&#8491;</span><sup>2</sup>):
+									Max Interface Area (<span>&#8491;</span>
+									<sup>2</sup>):
 								</label>
 								<br></br>
 								<input
@@ -298,7 +312,10 @@ function MillerPanel() {
 			</div>
 			<div className='md:col-span-2'>
 				<BaseCard>
-					<MillerTable totalMatchImgData={totalMatchImgData} totalMatchAspectRatio={totalMatchAspectRatio} >
+					<MillerTable
+						totalMatchImgData={totalMatchImgData}
+						totalMatchAspectRatio={totalMatchAspectRatio}
+					>
 						{tableRows}
 					</MillerTable>
 					{loading ? (

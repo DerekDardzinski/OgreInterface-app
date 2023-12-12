@@ -7,6 +7,7 @@ import OuterContainer from "../../components/OuterContainer/OuterContainer.jsx";
 import InnerContainer from "../../components/InnerContainer/InnerContainer.jsx";
 import BulkPanel from "../../panels/BulkPanel/BulkPanel.jsx";
 import useBulkStore from "../../stores/bulkStore.js";
+import { SketchPicker } from "react-color";
 
 function InterfaceWorkflow() {
 	const bulkUploaded = useBulkStore((state) => state.bulkUploaded);

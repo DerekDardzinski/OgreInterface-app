@@ -46,10 +46,13 @@
     "electron-squirrel-startup": "^1.0.0",
     "get-port": "^7.0.0",
     "graphology": "^0.25.4",
+    "mathjs": "^12.1.0",
     "portfinder": "^1.0.32",
     "react": "^18.2.0",
+    "react-color": "^2.19.3",
     "react-dom": "^18.2.0",
     "react-uuid": "^2.0.0",
+    "tailwindcss-patterns": "^0.1.2",
     "three": "^0.157.0",
     "tree-kill": "^1.2.2",
     "zustand": "^4.4.6"
