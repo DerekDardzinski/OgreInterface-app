@@ -9,6 +9,7 @@ import {
 	getFormattedFormula,
 	getFormattedMillerIndex,
 } from "../../utils/makeLabel.jsx";
+import ErrorPanel from "../ErrorPanel/ErrorPanel.jsx";
 
 const { ipcRenderer } = window;
 const port = ipcRenderer.sendSync("get-port-number");
@@ -164,8 +165,12 @@ function InterfaceRow({ interfaceViewData }) {
 	const substrateTerm = getFormattedFormula({
 		formula: interfaceViewData.substrateTerminationComp,
 	});
-	const filmCharge = interfaceViewData.filmSurfaceCharge;
-	const substrateCharge = interfaceViewData.substrateSurfaceCharge;
+	const filmCharge = `${parseFloat(
+		parseFloat(interfaceViewData.filmSurfaceCharge).toFixed(2)
+	)}`;
+	const substrateCharge = `${parseFloat(
+		parseFloat(interfaceViewData.substrateSurfaceCharge).toFixed(2)
+	)}`;
 
 	const pesID = "pes_modal_" + uuid();
 	const zshiftID = "zshift_modal_" + uuid();
@@ -217,29 +222,23 @@ function InterfaceRow({ interfaceViewData }) {
 				)]
 			</div> */}
 			<div className='col-span-5 flex justify-center items-center'>
-				<div className="grid grid-cols-1 grid-rows-2 items-center justify-center">
-				<div className="inline-block text-center text-lg font-bold">
-				{formattedFilmFormula}
-				{formattedFilmMillerIndex}/ 
-				{formattedSubstrateFormula}
-				{formattedSubstrateMillerIndex}
+				<div className='grid grid-cols-1 grid-rows-2 items-center justify-center'>
+					<div className='inline-block text-center text-lg font-bold'>
+						{formattedFilmFormula}
+						{formattedFilmMillerIndex}/{formattedSubstrateFormula}
+						{formattedSubstrateMillerIndex}
+					</div>
+					<div className='inline-block text-center text-md font-medium'>
+						Film/Substrate Termination: {filmTerm}(
+						{filmCharge > 0 ? "+" + filmCharge : filmCharge}
+						)/
+						{substrateTerm}(
+						{substrateCharge > 0
+							? "+" + substrateCharge
+							: substrateCharge}
+						)
+					</div>
 				</div>
-				<div className="inline-block text-center text-md font-medium">
-				Film/Substrate Termination: {filmTerm}(
-				{filmCharge > 0
-					? "+" + filmCharge.toString()
-					: filmCharge.toString()}
-				)/ 
-				{substrateTerm}(
-				{substrateCharge > 0
-					? "+" + substrateCharge.toString()
-					: substrateCharge.toString()}
-				)
-				</div>
-				</div>
-
-
-
 			</div>
 			<div className='col-span-1'>
 				<div
@@ -287,19 +286,19 @@ function InterfaceRow({ interfaceViewData }) {
 		</span>
 	);
 
-	const aLength = interfaceViewData.smallInterfaceStructure.lattice.a
-	const bLength = interfaceViewData.smallInterfaceStructure.lattice.b
+	const aLength = interfaceViewData.smallInterfaceStructure.lattice.a;
+	const bLength = interfaceViewData.smallInterfaceStructure.lattice.b;
 
-	const aRepeats = Math.max(2 , Math.ceil(20 / aLength))
-	const aShift = Math.floor(aRepeats / 2)
-	const bRepeats = Math.max(2, Math.ceil(20 / bLength))
-	const bShift = Math.floor(bRepeats / 2)
+	const aRepeats = Math.max(2, Math.ceil(20 / aLength));
+	const aShift = Math.floor(aRepeats / 2);
+	const bRepeats = Math.max(2, Math.ceil(20 / bLength));
+	const bShift = Math.floor(bRepeats / 2);
 
 	const initCellBounds = {
 		a: [-aShift, aRepeats - aShift],
 		b: [-bShift, bRepeats - bShift],
 		c: [0, 1],
-	}
+	};
 
 	console.log(interfaceViewData.smallInterfaceStructure);
 
@@ -321,7 +320,7 @@ function InterfaceRow({ interfaceViewData }) {
 						colorState: {
 							hex: "#ffffff",
 							rgb: { r: 255, g: 255, b: 255, a: 0.6 },
-						}
+						},
 					}}
 					leftInitCellBounds={initCellBounds}
 					rightStructure={interfaceViewData.fullInterfaceStructure}
@@ -337,8 +336,12 @@ function InterfaceRow({ interfaceViewData }) {
 
 function OptimizeRow(props) {
 	console.log(props);
-	const interfaceEnergy = parseFloat(1000 *props.data.interfaceEnergy).toFixed(3);
-	const adhesionEnergy = parseFloat(1000 * props.data.adhesionEnergy).toFixed(3);
+	const interfaceEnergy = parseFloat(
+		1000 * props.data.interfaceEnergy
+	).toFixed(3);
+	const adhesionEnergy = parseFloat(1000 * props.data.adhesionEnergy).toFixed(
+		3
+	);
 	const area = parseFloat(props.data.area).toFixed(3);
 	const strain = parseFloat(props.data.strain).toFixed(3);
 	const filmIndex = parseInt(props.data.filmIndex);
@@ -349,8 +352,14 @@ function OptimizeRow(props) {
 	const substrateTerm = getFormattedFormula({
 		formula: props.data.substrateTerminationComp,
 	});
-	const filmCharge = props.data.filmSurfaceCharge;
-	const substrateCharge = props.data.substrateSurfaceCharge;
+	// const filmCharge = parseFloat(props.data.filmSurfaceCharge).toFixed(2);
+	// const substrateCharge = parseFloat(props.data.substrateSurfaceCharge).toFixed(2);
+	const filmCharge = `${parseFloat(
+		parseFloat(props.data.filmSurfaceCharge).toFixed(2)
+	)}`;
+	const substrateCharge = `${parseFloat(
+		parseFloat(props.data.substrateSurfaceCharge).toFixed(2)
+	)}`;
 	const interfacialDistance = parseFloat(
 		props.data.interfacialDistance
 	).toFixed(3);
@@ -405,18 +414,11 @@ function OptimizeRow(props) {
 			<td>{interfaceEnergy}</td>
 			<td>{adhesionEnergy}</td>
 			<td>
-				{filmTerm}(
-				{filmCharge > 0
-					? "+" + filmCharge.toString()
-					: filmCharge.toString()}
-				)
+				{filmTerm}({filmCharge > 0 ? "+" + filmCharge : filmCharge})
 			</td>
 			<td>
 				{substrateTerm}(
-				{substrateCharge > 0
-					? "+" + substrateCharge.toString()
-					: substrateCharge.toString()}
-				)
+				{substrateCharge > 0 ? "+" + substrateCharge : substrateCharge})
 			</td>
 			<td>{interfacialDistance}</td>
 			<td>{filmIndex}</td>
@@ -509,75 +511,76 @@ function OptimizeTable(props) {
 }
 
 function OptimizePanel() {
-	const substrateH = useOptimizeStore((state) => state.substrateH);
-	const substrateK = useOptimizeStore((state) => state.substrateK);
-	const substrateI = useOptimizeStore((state) => state.substrateI);
-	const substrateL = useOptimizeStore((state) => state.substrateL);
+	const optimizeStore = useOptimizeStore();
+	// const optimizeStore.substrateH = useOptimizeStore((state) => state.optimizeStore.substrateH);
+	// const optimizeStore.substrateK = useOptimizeStore((state) => state.optimizeStore.substrateK);
+	// const optimizeStore.substrateI = useOptimizeStore((state) => state.optimizeStore.substrateI);
+	// const optimizeStore.substrateL = useOptimizeStore((state) => state.optimizeStore.substrateL);
 
-	const setSubstrateH = useOptimizeStore((state) => state.setSubstrateH);
-	const setSubstrateK = useOptimizeStore((state) => state.setSubstrateK);
-	const setSubstrateI = useOptimizeStore((state) => state.setSubstrateI);
-	const setSubstrateL = useOptimizeStore((state) => state.setSubstrateL);
+	// const optimizeStore.setSubstrateH = useOptimizeStore((state) => state.optimizeStore.setSubstrateH);
+	// const optimizeStore.setSubstrateK = useOptimizeStore((state) => state.optimizeStore.setSubstrateK);
+	// const optimizeStore.setSubstrateI = useOptimizeStore((state) => state.optimizeStore.setSubstrateI);
+	// const optimizeStore.setSubstrateL = useOptimizeStore((state) => state.optimizeStore.setSubstrateL);
 
-	const filmH = useOptimizeStore((state) => state.filmH);
-	const filmK = useOptimizeStore((state) => state.filmK);
-	const filmI = useOptimizeStore((state) => state.filmI);
-	const filmL = useOptimizeStore((state) => state.filmL);
+	// const optimizeStore.filmH = useOptimizeStore((state) => state.optimizeStore.filmH);
+	// const optimizeStore.filmK = useOptimizeStore((state) => state.optimizeStore.filmK);
+	// const optimizeStore.filmI = useOptimizeStore((state) => state.optimizeStore.filmI);
+	// const optimizeStore.filmL = useOptimizeStore((state) => state.optimizeStore.filmL);
 
-	const setFilmH = useOptimizeStore((state) => state.setFilmH);
-	const setFilmK = useOptimizeStore((state) => state.setFilmK);
-	const setFilmI = useOptimizeStore((state) => state.setFilmI);
-	const setFilmL = useOptimizeStore((state) => state.setFilmL);
+	// const optimizeStore.setFilmH = useOptimizeStore((state) => state.optimizeStore.setFilmH);
+	// const optimizeStore.setFilmK = useOptimizeStore((state) => state.optimizeStore.setFilmK);
+	// const optimizeStore.setFilmI = useOptimizeStore((state) => state.optimizeStore.setFilmI);
+	// const optimizeStore.setFilmL = useOptimizeStore((state) => state.optimizeStore.setFilmL);
 
-	const filmCubic = useOptimizeStore((state) => state.filmCubic);
-	const substrateCubic = useOptimizeStore((state) => state.substrateCubic);
+	// const optimizeStore.filmCubic = useOptimizeStore((state) => state.optimizeStore.filmCubic);
+	// const optimizeStore.substrateCubic = useOptimizeStore((state) => state.optimizeStore.substrateCubic);
 
-	const setFilmCubic = useOptimizeStore((state) => state.setFilmCubic);
-	const setSubstrateCubic = useOptimizeStore(
-		(state) => state.setSubstrateCubic
-	);
+	// const optimizeStore.setFilmCubic = useOptimizeStore((state) => state.optimizeStore.setFilmCubic);
+	// const optimizeStore.setSubstrateCubic = useOptimizeStore(
+	// 	(state) => state.optimizeStore.setSubstrateCubic
+	// );
 
-	const useStableSubstrate = useOptimizeStore(
-		(state) => state.useStableSubstrate
-	);
-	const setUseStableSubstrate = useOptimizeStore(
-		(state) => state.setUseStableSubstrate
-	);
+	// const optimizeStore.useStableSubstrate = useOptimizeStore(
+	// 	(state) => state.optimizeStore.useStableSubstrate
+	// );
+	// const optimizeStore.setUseStableSubstrate = useOptimizeStore(
+	// 	(state) => state.optimizeStore.setUseStableSubstrate
+	// );
 
-	const maxArea = useOptimizeStore((state) => state.maxArea);
-	const setMaxArea = useOptimizeStore((state) => state.setMaxArea);
+	// const optimizeStore.maxArea = useOptimizeStore((state) => state.optimizeStore.maxArea);
+	// const optimizeStore.setMaxArea = useOptimizeStore((state) => state.optimizeStore.setMaxArea);
 
-	const maxStrain = useOptimizeStore((state) => state.maxStrain);
-	const setMaxStrain = useOptimizeStore((state) => state.setMaxStrain);
+	// const optimizeStore.maxStrain = useOptimizeStore((state) => state.optimizeStore.maxStrain);
+	// const optimizeStore.setMaxStrain = useOptimizeStore((state) => state.optimizeStore.setMaxStrain);
 
-	const setFilmMillerIndex = useOptimizeStore(
-		(state) => state.setFilmMillerIndex
-	);
-	const setSubstrateMillerIndex = useOptimizeStore(
-		(state) => state.setSubstrateMillerIndex
-	);
-	const filmMillerIndex = useOptimizeStore((state) => state.filmMillerIndex);
-	const substrateMillerIndex = useOptimizeStore(
-		(state) => state.substrateMillerIndex
-	);
+	// const optimizeStore.setFilmMillerIndex = useOptimizeStore(
+	// 	(state) => state.optimizeStore.setFilmMillerIndex
+	// );
+	// const optimizeStore.setSubstrateMillerIndex = useOptimizeStore(
+	// 	(state) => state.optimizeStore.setSubstrateMillerIndex
+	// );
+	// const filmMillerIndex = useOptimizeStore((state) => state.filmMillerIndex);
+	// const substrateMillerIndex = useOptimizeStore(
+	// 	(state) => state.substrateMillerIndex
+	// );
 
-	const setTerminationInds = useOptimizeStore(
-		(state) => state.setTerminationInds
-	);
-	const terminationInds = useOptimizeStore((state) => state.terminationInds);
-	const interfaceData = useOptimizeStore((state) => state.interfaceData);
-	const setInterfaceData = useOptimizeStore(
-		(state) => state.setInterfaceData
-	);
+	// const setTerminationInds = useOptimizeStore(
+	// 	(state) => state.setTerminationInds
+	// );
+	// const terminationInds = useOptimizeStore((state) => state.terminationInds);
+	// const optimizeStore.interfaceData = useOptimizeStore((state) => state.optimizeStore.interfaceData);
+	// const optimizeStore.setInterfaceData = useOptimizeStore(
+	// 	(state) => state.optimizeStore.setInterfaceData
+	// );
 
-	const interfaceViewData = useOptimizeStore(
-		(state) => state.interfaceViewData
-	);
-	const setInterfaceViewData = useOptimizeStore(
-		(state) => state.setInterfaceViewData
-	);
+	// const optimizeStore.interfaceViewData = useOptimizeStore(
+	// 	(state) => state.optimizeStore.interfaceViewData
+	// );
+	// const optimizeStore.setInterfaceViewData = useOptimizeStore(
+	// 	(state) => state.optimizeStore.setInterfaceViewData
+	// );
 
-	const resetOptimize = useOptimizeStore((state) => state.resetOptimize);
+	// const optimizeStore.resetOptimize = useOptimizeStore((state) => state.optimizeStore.resetOptimize);
 
 	const filmStructure = useBulkStore((state) => state.filmStructure);
 	const substrateStructure = useBulkStore(
@@ -594,7 +597,7 @@ function OptimizePanel() {
 		// Prevent the browser from reloading the page
 		e.preventDefault();
 		setLoading(true);
-		resetOptimize();
+		optimizeStore.resetOptimize();
 
 		// Read the form data
 		const form = e.target;
@@ -610,40 +613,23 @@ function OptimizePanel() {
 				if (!res.ok) {
 					throw new Error("Bad Response");
 				}
+				setLoading(false);
 				return res.json();
 			})
 			.then((data) => {
-				setMaxArea(data.maxArea);
-				setMaxStrain(data.maxStrain);
-				setFilmMillerIndex(data.filmMillerIndex);
-				setSubstrateMillerIndex(data.substrateMillerIndex);
-				setInterfaceData(data.interfaceData);
-				setLoading(false);
-				// setTerminationInds(data.terminationInds);
-				// console.log(data.interfaces);
-
-				// if (data.terminationInds.length > 0) {
-				// 	const rows = [];
-				// 	data.terminationInds.forEach((value, index) => {
-				// 		console.log(value);
-				// 		rows.push(
-				// 			<InterfaceRow
-				// 				key={uuid()}
-				// 				filmTerminationInd={value.film}
-				// 				substrateTerminationInd={value.substrate}
-				// 				maxArea={data.maxArea}
-				// 				maxStrain={data.maxStrain}
-				// 				filmMillerIndex={data.filmMillerIndex}
-				// 				substrateMillerIndex={data.substrateMillerIndex}
-				// 				filmStructure={filmStructure}
-				// 				substrateStructure={substrateStructure}
-				// 			/>
-				// 		);
-				// 	});
-				// 	setIfaceData(rows);
-				// 	// ifaceData = rows;
-				// 	// console.log(rows)
-				// }
+				if (data === "TolarenceError") {
+					optimizeStore.setTolarenceError();
+				} else {
+					console.log("DATA = ", data);
+					optimizeStore.setMaxArea(data.maxArea);
+					optimizeStore.setMaxStrain(data.maxStrain);
+					optimizeStore.setFilmMillerIndex(data.filmMillerIndex);
+					optimizeStore.setSubstrateMillerIndex(
+						data.substrateMillerIndex
+					);
+					optimizeStore.setInterfaceData(data.interfaceData);
+					setLoading(false);
+				}
 			})
 			.catch((err) => {
 				console.error(err);
@@ -652,13 +638,13 @@ function OptimizePanel() {
 
 	const tableRows = [];
 
-	if (interfaceData.length > 0) {
-		interfaceData.forEach((rowData, index) => {
+	if (optimizeStore.interfaceData.length > 0) {
+		optimizeStore.interfaceData.forEach((rowData, index) => {
 			tableRows.push(
 				<OptimizeRow
 					data={rowData}
 					key={uuid()}
-					setInterfaceViewData={setInterfaceViewData}
+					setInterfaceViewData={optimizeStore.setInterfaceViewData}
 				/>
 			);
 		});
@@ -681,8 +667,12 @@ function OptimizePanel() {
 											type='radio'
 											name='filmMillerType'
 											value='cubic'
-											defaultChecked={filmCubic}
-											onClick={() => setFilmCubic(true)}
+											defaultChecked={
+												optimizeStore.filmCubic
+											}
+											onClick={() =>
+												optimizeStore.setFilmCubic(true)
+											}
 										/>
 										<span className='label-text'>
 											Cubic Notation
@@ -694,34 +684,40 @@ function OptimizePanel() {
 											type='radio'
 											name='filmMillerType'
 											value='hexagonal'
-											defaultChecked={!filmCubic}
-											onClick={() => setFilmCubic(false)}
+											defaultChecked={
+												!optimizeStore.filmCubic
+											}
+											onClick={() =>
+												optimizeStore.setFilmCubic(
+													false
+												)
+											}
 										/>
 										<span className='label-text'>
 											Hexagonal Notation
 										</span>
 									</label>
 								</p>
-								{filmCubic ? (
+								{optimizeStore.filmCubic ? (
 									<CubicNotationInput
-										H={filmH}
-										K={filmK}
-										L={filmL}
-										setH={setFilmH}
-										setK={setFilmK}
-										setL={setFilmL}
+										H={optimizeStore.filmH}
+										K={optimizeStore.filmK}
+										L={optimizeStore.filmL}
+										setH={optimizeStore.setFilmH}
+										setK={optimizeStore.setFilmK}
+										setL={optimizeStore.setFilmL}
 										baseName={"film"}
 									/>
 								) : (
 									<HexagonalNotationInput
-										H={filmH}
-										K={filmK}
-										I={filmI}
-										L={filmL}
-										setH={setFilmH}
-										setK={setFilmK}
-										setI={setFilmI}
-										setL={setFilmL}
+										H={optimizeStore.filmH}
+										K={optimizeStore.filmK}
+										I={optimizeStore.filmI}
+										L={optimizeStore.filmL}
+										setH={optimizeStore.setFilmH}
+										setK={optimizeStore.setFilmK}
+										setI={optimizeStore.setFilmI}
+										setL={optimizeStore.setFilmL}
 										baseName={"film"}
 									/>
 								)}
@@ -737,9 +733,13 @@ function OptimizePanel() {
 											type='radio'
 											name='substrateMillerType'
 											value='cubic'
-											defaultChecked={substrateCubic}
+											defaultChecked={
+												optimizeStore.substrateCubic
+											}
 											onClick={() =>
-												setSubstrateCubic(true)
+												optimizeStore.setSubstrateCubic(
+													true
+												)
 											}
 										/>
 										<span className='label-text'>
@@ -752,9 +752,13 @@ function OptimizePanel() {
 											type='radio'
 											name='substrateMillerType'
 											value='hexagonal'
-											defaultChecked={!substrateCubic}
+											defaultChecked={
+												!optimizeStore.substrateCubic
+											}
 											onClick={() =>
-												setSubstrateCubic(false)
+												optimizeStore.setSubstrateCubic(
+													false
+												)
 											}
 										/>
 										<span className='label-text'>
@@ -762,26 +766,26 @@ function OptimizePanel() {
 										</span>
 									</label>
 								</p>
-								{substrateCubic ? (
+								{optimizeStore.substrateCubic ? (
 									<CubicNotationInput
-										H={substrateH}
-										K={substrateK}
-										L={substrateL}
-										setH={setSubstrateH}
-										setK={setSubstrateK}
-										setL={setSubstrateL}
+										H={optimizeStore.substrateH}
+										K={optimizeStore.substrateK}
+										L={optimizeStore.substrateL}
+										setH={optimizeStore.setSubstrateH}
+										setK={optimizeStore.setSubstrateK}
+										setL={optimizeStore.setSubstrateL}
 										baseName={"substrate"}
 									/>
 								) : (
 									<HexagonalNotationInput
-										H={substrateH}
-										K={substrateK}
-										I={substrateI}
-										L={substrateL}
-										setH={setSubstrateH}
-										setK={setSubstrateK}
-										setI={setSubstrateI}
-										setL={setSubstrateL}
+										H={optimizeStore.substrateH}
+										K={optimizeStore.substrateK}
+										I={optimizeStore.substrateI}
+										L={optimizeStore.substrateL}
+										setH={optimizeStore.setSubstrateH}
+										setK={optimizeStore.setSubstrateK}
+										setI={optimizeStore.setSubstrateI}
+										setL={optimizeStore.setSubstrateL}
 										baseName={"substrate"}
 									/>
 								)}
@@ -797,8 +801,8 @@ function OptimizePanel() {
 									id='maxArea'
 									name='maxArea'
 									placeholder='optional'
-									defaultValue={maxArea}
-									// onChange={(e) => setMaxArea(e.target.value)}
+									defaultValue={optimizeStore.maxArea}
+									// onChange={(e) => optimizeStore.setMaxArea(e.target.value)}
 									className={textClassName}
 								/>
 							</div>
@@ -812,8 +816,8 @@ function OptimizePanel() {
 									id='maxStrain'
 									name='maxStrain'
 									placeholder='3.0'
-									defaultValue={maxStrain}
-									// onChange={(e) => setMaxStrain(e.target.value)}
+									defaultValue={optimizeStore.maxStrain}
+									// onChange={(e) => optimizeStore.setMaxStrain(e.target.value)}
 									className={textClassName}
 								/>
 							</div>
@@ -823,8 +827,12 @@ function OptimizePanel() {
 										className='checkbox checkbox-sm checkbox-secondary mr-3'
 										type='checkbox'
 										name='stableSubstrate'
-										defaultChecked={useStableSubstrate}
-										onChange={setUseStableSubstrate}
+										defaultChecked={
+											optimizeStore.useStableSubstrate
+										}
+										onChange={
+											optimizeStore.setUseStableSubstrate
+										}
 									/>
 									Use most stable substrate?
 								</label>
@@ -843,24 +851,28 @@ function OptimizePanel() {
 				</BaseCard>
 			</div>
 			<div className='md:col-span-2'>
-				<BaseCard>
-					<OptimizeTable
-						totalEnergyImgData={""}
-						totalEnergyAspectRatio={""}
-					>
-						{tableRows}
-					</OptimizeTable>
-					{loading ? (
-						<div className='flex items-center justify-center w-[100%] mt-4'>
-							<span className='loading loading-bars loading-lg'></span>
-						</div>
-					) : (
-						<></>
-					)}
-				</BaseCard>
+				{optimizeStore.tolarenceError ? (
+					<ErrorPanel title={"!!! No Interface Found !!!"} message={"Please try increasing the max strain/max area"}/>
+				) : (
+					<BaseCard>
+						<OptimizeTable
+							totalEnergyImgData={""}
+							totalEnergyAspectRatio={""}
+						>
+							{tableRows}
+						</OptimizeTable>
+						{loading ? (
+							<div className='flex items-center justify-center w-[100%] mt-4'>
+								<span className='loading loading-bars loading-lg'></span>
+							</div>
+						) : (
+							<></>
+						)}
+					</BaseCard>
+				)}
 			</div>
-			{interfaceViewData}
-			{/* <InterfaceRow interfaceViewData={interfaceViewData} /> */}
+			{optimizeStore.interfaceViewData}
+			{/* <InterfaceRow optimizeStore.interfaceViewData={optimizeStore.interfaceViewData} /> */}
 			{/* {ifaceData} */}
 			{/* {testComp} */}
 		</>

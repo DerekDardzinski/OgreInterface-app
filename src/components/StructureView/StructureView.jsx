@@ -927,7 +927,7 @@ function LatticePlanePanel({ latticePlaneProps, setLatticePlaneProps }) {
 	);
 }
 
-function CellBoundsPanel({ cellBounds, setCellBounds }) {
+function CellBoundsPanel({ cellBounds, setCellBounds, showAllUnitCells, setShowAllUnitCells }) {
 	const [aMin, setAMin] = useState(cellBounds.a[0]);
 	const [aMax, setAMax] = useState(cellBounds.a[1]);
 	const [bMin, setBMin] = useState(cellBounds.b[0]);
@@ -1066,6 +1066,18 @@ function CellBoundsPanel({ cellBounds, setCellBounds }) {
 							z<sub>max</sub>
 						</p>
 					</div>
+					<div className='col-span-2 text-xs justify-center items-center flex'>
+						<label className='flex flex-y'>
+							<input
+								className='checkbox checkbox-xs checkbox-secondary mr-3'
+								type='checkbox'
+								name='stableSubstrate'
+								defaultChecked={showAllUnitCells}
+								onChange={() => setShowAllUnitCells((prevState) => !prevState)}
+							/>
+							Show all unit cells
+						</label>
+					</div>
 				</div>
 			</div>
 		</form>
@@ -1079,6 +1091,8 @@ function StructureViewPopUp({
 	setLatticePlaneProps,
 	cellBounds,
 	setCellBounds,
+	showAllUnitCells,
+	setShowAllUnitCells,
 	speciesPairs,
 	speciesColors,
 }) {
@@ -1134,6 +1148,8 @@ function StructureViewPopUp({
 		<CellBoundsPanel
 			cellBounds={cellBounds}
 			setCellBounds={setCellBounds}
+			showAllUnitCells={showAllUnitCells}
+			setShowAllUnitCells={setShowAllUnitCells}
 		/>
 	);
 
@@ -1297,7 +1313,8 @@ function StructureView({
 	const [structureGraph, setStructureGraph] = useState(new Graph());
 	const [viewGraph, setViewGraph] = useState(new Graph());
 	const [bondCutoffs, setBondCutoffs] = useState({});
-	const [cellBounds, setCellBounds] = useState(initCellBounds)
+	const [cellBounds, setCellBounds] = useState(initCellBounds);
+	const [showAllUnitCells, setShowAllUnitCells] =useState(true)
 	// const [cellBounds, setCellBounds] = useState({
 	// 	a: [0.0, 1.0],
 	// 	b: [0.0, 1.0],
@@ -1307,6 +1324,11 @@ function StructureView({
 	const [speciesColors, setSpeciesColors] = useState({});
 	const [unitCell, setUnitCell] = useState(<></>);
 	const [basis, setBasis] = useState([
+		[1.0, 0.0, 0.0],
+		[0.0, 1.0, 0.0],
+		[0.0, 0.0, 1.0],
+	]);
+	const [recipBasis, setRecipBasis] = useState([
 		[1.0, 0.0, 0.0],
 		[0.0, 1.0, 0.0],
 		[0.0, 0.0, 1.0],
@@ -1370,9 +1392,10 @@ function StructureView({
 				setSpeciesPairs(data.speciesPairs);
 				setSpeciesColors(data.speciesColors);
 				setBondCutoffs(data.bondCutoffs);
-				setUnitCell(<UnitCell key={uuid()} {...data.unitCell} />);
+				// setUnitCell(<UnitCell key={uuid()} {...data.unitCell} />);
 				// setCenterShift(data.centerShift);
 				setBasis(data.basis);
+				setRecipBasis(data.recipBasis);
 				setNormBasis(data.normBasis);
 				setViewData(data.viewData);
 				setAdditionalProps(data.additionalProps);
@@ -1431,6 +1454,8 @@ function StructureView({
 					setLatticePlaneProps={setLatticePlaneProps}
 					cellBounds={cellBounds}
 					setCellBounds={setCellBounds}
+					showAllUnitCells={showAllUnitCells}
+					setShowAllUnitCells={setShowAllUnitCells}
 					speciesPairs={speciesPairs}
 					speciesColors={speciesColors}
 				/>
@@ -1465,7 +1490,7 @@ function StructureView({
 
 	const newCenterShift = getCenterShift({ basis: basis, bounds: cellBounds });
 	const structureRef = useRef();
-	console.log(structureRef);
+	// console.log(structureRef);
 
 	// const api = useBounds()
 
@@ -1473,6 +1498,41 @@ function StructureView({
 		viewGraph: viewGraph,
 		bounds: cellBounds,
 	});
+
+	console.log(showAllUnitCells)
+
+	let unitCells;
+	if (showAllUnitCells) {
+		const tmpUnitCells = []
+		for (
+			let a = Math.sign(cellBounds.a[0]) * Math.floor(Math.abs(cellBounds.a[0]));
+			a <= Math.ceil(cellBounds.a[1]) - 1;
+			a++
+		) {
+			for (
+				let b = Math.sign(cellBounds.a[0]) * Math.floor(Math.abs(cellBounds.b[0]));
+				b <= Math.ceil(cellBounds.b[1]) - 1;
+				b++
+			) {
+				for (
+					let c = Math.sign(cellBounds.c[0]) * Math.floor(Math.abs(cellBounds.c[0]));
+					c <= Math.ceil(cellBounds.c[1]) - 1;
+					c++
+				) {
+					tmpUnitCells.push(<UnitCell key={uuid()} basis={basis} shift={getTranslationFromImage({basis: basis, image: [a, b, c]})} />)
+					// if (!(a == 0 && b == 0 && c == 0)) {
+						
+					// }
+				}
+			}
+		}
+
+		unitCells = tmpUnitCells
+		
+		// unitCells.push(<UnitCell key={uuid()} basis={basis} shift={getTranslationFromImage({basis: basis, image: [0, 1, 0]})} />)
+	} else {
+		unitCells = [<UnitCell key={uuid()} basis={basis} shift={[0.0, 0.0, 0.0]} />]
+	}
 
 	// console.log(mergedGeoms)
 	// api.refresh(mergedGeoms).fit()
@@ -1486,12 +1546,16 @@ function StructureView({
 				>
 					<group ref={groupRef} position={newCenterShift}>
 						<Bounds fit clip margin={1.4} fixedOrientation>
+							<BoundsRefresher cellBounds={cellBounds} />
 							<mesh
 								ref={structureRef}
 								geometry={mergedGeoms}
 								material={
-									new THREE.MeshPhongMaterial({
+									new THREE.MeshPhysicalMaterial({
 										vertexColors: true,
+										roughness: 0.5,
+										metalness: 0.7,
+
 									})
 								}
 							/>
@@ -1502,6 +1566,7 @@ function StructureView({
 									<LatticePlane
 										key={uuid()}
 										basis={basis}
+										recipBasis={recipBasis}
 										cellBounds={cellBounds}
 										centerShift={newCenterShift}
 										{...latticePlaneProps[key]}
@@ -1512,7 +1577,7 @@ function StructureView({
 							<></>
 						)}
 						{/* // <LatticePlane key={uuid()} basis={basis} millerIndex={[0, 0, 1]} alpha={0.7} color={"white"} lineWidth={1.0} shiftAlongNorm={-0.5}/> */}
-						{unitCell}
+						{unitCells}
 					</group>
 					{/* <Viewcube basis={normBasis} /> */}
 					<GizmoHelper alignment='bottom-left' margin={[60, 60]}>
@@ -1543,19 +1608,23 @@ function StructureView({
 	);
 }
 
-function Zoom(props) {
+function BoundsRefresher({cellBounds}) {
 	const api = useBounds();
 
-	return (
-		<group
-			onClick={(e) => (
-				e.stopPropagation(), e.delta <= 2 && api.refresh(e.object).fit()
-			)}
-			onPointerMissed={(e) => e.button === 0 && api.refresh().fit()}
-		>
-			{props.children}
-		</group>
-	);
+	useEffect(() => {
+		api.refresh().fit().clip()
+	}, [cellBounds])
+
+	// return (
+	// 	<group
+	// 		onClick={(e) => (
+	// 			e.stopPropagation(), e.delta <= 2 && api.refresh(e.object).fit()
+	// 		)}
+	// 		onPointerMissed={(e) => e.button === 0 && api.refresh().fit()}
+	// 	>
+	// 		{props.children}
+	// 	</group>
+	// );
 }
 
 function Viewcube({
@@ -1607,7 +1676,7 @@ function Viewcube({
 StructureView.defaultProps = {
 	initCameraPosition: "a",
 	initLatticePlaneProps: [],
-	initCellBounds: {a: [0, 1], b: [0, 1], c: [0, 1]},
+	initCellBounds: { a: [0, 1], b: [0, 1], c: [0, 1] },
 };
 
 export default StructureView;

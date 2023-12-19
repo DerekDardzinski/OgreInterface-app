@@ -103,17 +103,17 @@ function Display(props) {
 				{props.children}
 				{/* </Bounds> */}
 
-				<ambientLight intensity={0.3} />
+				<ambientLight intensity={2} />
 				<pointLight
 					ref={lightRef}
-					position={[0, 0, 0]}
-					intensity={100}
+					position={[-20, 20, 0]}
+					intensity={10}
 				/>
-				<pointLight
+				{/* <pointLight
 					ref={lightRef2}
-					position={[0, 1, 0]}
-					intensity={100}
-				/>
+					position={[20, 20, 0]}
+					intensity={10}
+				/> */}
 
 				<OrbitControls
 					enablePan={false}
@@ -122,19 +122,29 @@ function Display(props) {
 					onChange={(e) => {
 						if (!e) return;
 						const camera = e.target.object;
+						// const lightShift1 = camera.localToWorld(new THREE.Vector3(-20, 20, 0));
+						// const lightShift2 = camera.localToWorld(new THREE.Vector3(20, 20, 0));
+						// // const localUp = camera.localToWorld(camera.up.clone())
+						// const localCamera = camera.position
+						// const upVector = new THREE.Vector3().subVectors(lightShift1, localCamera)
+						// console.log("Local Up = ", upVector)
 						// console.log(camera.position)
 						const radius = camera.position.length();
 
 						if (lightRef.current) {
-							lightRef.current.position.set(-10, 0, 0);
-							lightRef.current.position.add(camera.position);
-							lightRef.current.intensity = 1 * radius * radius;
+							// lightRef.current.position.set(0, 10, 10);
+							lightRef.current.position.set(...camera.position.clone().multiplyScalar(0.5))
+							// lightRef.current.position.set(...lightShift1.sub(camera.position).toArray());
+							lightRef.current.intensity = 0.75 * radius * radius;
 						}
 
+						// console.log(lightRef.current.position)
+
 						if (lightRef2.current) {
-							lightRef2.current.position.set(10, 0, 0);
-							lightRef2.current.position.add(camera.position);
-							lightRef2.current.intensity = 1 * radius * radius;
+							lightRef2.current.position.set(0, radius, 0);
+							lightRef2.current.position.add(camera.position.clone().multiplyScalar(1));
+							// lightRef.current.position.set(...lightShift2.sub(camera.position).toArray());
+							lightRef2.current.intensity = 4 * 4 * 0.5 * 0.5 * radius * radius;
 						}
 					}}
 				/>

@@ -37,7 +37,7 @@ function getFormattedFormula({formula}) {
 function getFormattedMillerIndex({millerIndex}) {
     const formattedMillerIndex = millerIndex.map((value) => {
         if (value < 0) {
-            return <span key={uuid()} className="overline">{value}</span>
+            return <span key={uuid()} className="overline">{-value}</span>
         } else {
             return <span key={uuid()}>{value}</span>
         }

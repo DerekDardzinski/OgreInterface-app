@@ -8,6 +8,8 @@ const useBulkStore = create((set) => ({
 	substrateFormula: "",
 	substrateSpaceGroup: "",
 	bulkUploaded: false,
+	bulkOrderedError: false,
+	setBulkOrderedError: (value) => set({bulkOrderedError: value}),
 	setBulkUploaded: () => set({bulkUploaded: true}),
 	setFilmStructure: (data) => set({ filmStructure: data }),
 	setSubstrateStructure: (data) => set({ substrateStructure: data }),
@@ -24,6 +26,7 @@ const useBulkStore = create((set) => ({
 			substrateFormula: "",
 			substrateSpaceGroup: "",
 			bulkUploaded: false,
+			bulkUploadError: false,
 		}),
 }));
 

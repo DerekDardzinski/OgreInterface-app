@@ -7,6 +7,7 @@ import uuid from "react-uuid";
 
 function LatticePlane({
 	basis,
+	recipBasis,
 	millerIndex,
 	color,
 	alpha,
@@ -32,7 +33,7 @@ function LatticePlane({
 	// 	.normalize()
 
 
-	const recipBasis = mathjs.transpose(mathjs.inv(basis));
+	// const recipBasis = mathjs.transpose(mathjs.inv(basis));
 	const recipBasisMatrix = mathjs.matrix(recipBasis);
 	const recipMetricTensor = mathjs.multiply(
 		recipBasisMatrix,
@@ -55,25 +56,32 @@ function LatticePlane({
 	const planeNorm100 = new THREE.Vector3().fromArray(recipBasis[0]).normalize()
 	const planeNorm010 = new THREE.Vector3().fromArray(recipBasis[1]).normalize()
 	const planeNorm001 = new THREE.Vector3().fromArray(recipBasis[2]).normalize()
-	const aDist = new THREE.Vector3().fromArray(basis[0]).length()
-	const bDist = new THREE.Vector3().fromArray(basis[1]).length()
-	const cDist = new THREE.Vector3().fromArray(basis[2]).length()
+	const aVec = new THREE.Vector3().fromArray(basis[0])
+	const bVec = new THREE.Vector3().fromArray(basis[1])
+	const cVec = new THREE.Vector3().fromArray(basis[2])
+
 	const centerShiftVec = new THREE.Vector3().fromArray(centerShift)
-	const aShift = planeNorm100.dot(centerShiftVec);
-	const bShift = planeNorm010.dot(centerShiftVec);
-	const cShift = planeNorm001.dot(centerShiftVec);
+	const aCenterShift = planeNorm100.dot(centerShiftVec);
+	const bCenterShift = planeNorm010.dot(centerShiftVec);
+	const cCenterShift = planeNorm001.dot(centerShiftVec);
+	const aSpacing = planeNorm100.dot(aVec);
+	const bSpacing = planeNorm010.dot(bVec);
+	const cSpacing = planeNorm001.dot(cVec);
+
+	// console.log("SPACINGS = ", aSpacing, bSpacing, cSpacing)
+
 
 	// const normMillerIndex = new THREE.Vector3().fromArray(millerIndex).normalize().toArray()
 
-	const pad = 0.1
+	const pad = 0.05
 
 	const clippingPlanes = [
-		new THREE.Plane(planeNorm100, ((-aDist * cellBounds.a[0]) - aShift) + pad),
-		new THREE.Plane(planeNorm100.clone().multiplyScalar(-1), ((aDist * cellBounds.a[1]) + aShift) + pad),
-		new THREE.Plane(planeNorm010, ((-bDist * cellBounds.b[0]) - aShift) + pad),
-		new THREE.Plane(planeNorm010.clone().multiplyScalar(-1), ((bDist * cellBounds.b[1]) + bShift) + pad),
-		new THREE.Plane(planeNorm001, ((-cDist * cellBounds.c[0]) - cShift) + pad),
-		new THREE.Plane(planeNorm001.clone().multiplyScalar(-1), ((cDist * cellBounds.c[1]) + cShift) + pad),
+		new THREE.Plane(planeNorm100,  -((aSpacing * cellBounds.a[0]) + aCenterShift) + pad),
+		new THREE.Plane(planeNorm010,  -((bSpacing * cellBounds.b[0]) + bCenterShift) + pad),
+		new THREE.Plane(planeNorm001,  -((cSpacing * cellBounds.c[0]) + cCenterShift) + pad),
+		new THREE.Plane(planeNorm100.clone().multiplyScalar(-1), ((aSpacing * cellBounds.a[1]) + aCenterShift) + pad),
+		new THREE.Plane(planeNorm010.clone().multiplyScalar(-1), ((bSpacing * cellBounds.b[1]) + bCenterShift) + pad),
+		new THREE.Plane(planeNorm001.clone().multiplyScalar(-1), ((cSpacing * cellBounds.c[1]) + cCenterShift) + pad),
 	]
 
 	let initOrientation = new THREE.Vector3().fromArray([0.0, 0.0, 1.0]);
@@ -89,7 +97,7 @@ function LatticePlane({
 			<group quaternion={quat}>
 				{/* Lattice plane being big is causing issues */}
 				<Plane args={[5000, 5000, 10, 10]}> 
-					<meshStandardMaterial
+					<meshPhysicalMaterial
 						attach='material'
 						color={color}
 						opacity={alpha}
@@ -97,10 +105,10 @@ function LatticePlane({
 						depthWrite={true}
 						side={THREE.DoubleSide}
 						flatShading={true}
-						roughness={0.9}
-						metalness={0.5}
-						reflectivity={0.5}
-						clearcoat={0.5}
+						roughness={1.0}
+						metalness={0.0}
+						// reflectivity={0.5}
+						// clearcoat={0.5}
 						clippingPlanes={clippingPlanes}
 					/>
 				</Plane>

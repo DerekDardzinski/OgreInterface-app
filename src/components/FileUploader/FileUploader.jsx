@@ -78,8 +78,11 @@ function FileUploader(props) {
 				bulkStore.setSubstrateStructure(data.substrate)
 				bulkStore.setSubstrateFormula(data.substrateFormula)
 				bulkStore.setSubstrateSpaceGroup(data.substrateSpaceGroup)
+
+				if (!(data.substrateOrdered && data.filmOrdered)) {
+					bulkStore.setBulkOrderedError(true)
+				}
 				bulkStore.setBulkUploaded()
-				// setData(data);
 			})
 			.catch((err) => {
 				console.error(err);

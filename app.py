@@ -7,6 +7,7 @@ import io
 import base64
 from multiprocessing import Pool, cpu_count, freeze_support
 import time
+from fnmatch import fnmatch
 
 from flask import Flask, jsonify, request
 from flask_cors import CORS, cross_origin
@@ -32,6 +33,7 @@ from OgreInterface.plotting_tools.colors import vesta_colors
 from OgreInterface.miller import MillerSearch
 from OgreInterface.surfaces import OrientedBulk
 from OgreInterface.lattice_match import ZurMcGill
+from OgreInterface.generate.interface_generator import TolarenceError
 from OgreInterface import utils as ogre_utils
 from OgreInterface.plotting_tools import plot_match
 from OgreInterface.generate import SurfaceGenerator, InterfaceGenerator
@@ -693,22 +695,22 @@ def _get_unit_cell(
 ) -> tp.List:
     frac_points = np.array(
         [
-            [0, 0, 0],
-            [1, 0, 0],
-            [1, 1, 0],
-            [0, 1, 0],
-            [0, 0, 0],
-            [0, 0, 1],
-            [1, 0, 1],
-            [1, 0, 0],
-            [1, 0, 1],
-            [1, 1, 1],
-            [1, 1, 0],
-            [1, 1, 1],
-            [0, 1, 1],
-            [0, 1, 0],
-            [0, 1, 1],
-            [0, 0, 1],
+            [0, 0, 0],  # shift
+            [1, 0, 0],  # shift, basis[0]
+            [1, 1, 0],  # shift, basis[0], basis[1]
+            [0, 1, 0],  # shift, basis[1]
+            [0, 0, 0],  # shift
+            [0, 0, 1],  # shift, basis[2]
+            [1, 0, 1],  # shift, basis[0], basis[2]
+            [1, 0, 0],  # shift, basis[0]
+            [1, 0, 1],  # shift, basis[0], basis[2]
+            [1, 1, 1],  # shift, basis[0], basis[1], basis[2]
+            [1, 1, 0],  # shift, basis[0], basis[1]
+            [1, 1, 1],  # shift, basis[0], basis[1], basis[2]
+            [0, 1, 1],  # shift, basis[1], basis[2]
+            [0, 1, 0],  # shift, basis[1]
+            [0, 1, 1],  # shift, basis[1], basis[2]
+            [0, 0, 1],  # shift, basis[2]
         ]
     )
     points = frac_points.dot(unit_cell)
@@ -912,8 +914,12 @@ def _get_threejs_data(
     center_shift = structure.lattice.get_cartesian_coords([0.5, 0.5, 0.5])
 
     basis_vecs = copy.deepcopy(structure.lattice.matrix)
+    recip_basis_vecs = copy.deepcopy(
+        structure.lattice.reciprocal_lattice_crystallographic.matrix
+    )
     norm_basis_vecs = basis_vecs / np.linalg.norm(basis_vecs, axis=1)
-    basis = [_three_flip(v) for v in basis_vecs]
+    basis = [_three_flip(v) for v in basis_vecs.tolist()]
+    recip_basis = [_three_flip(v) for v in recip_basis_vecs.tolist()]
     norm_basis = [_three_flip(v) for v in norm_basis_vecs.tolist()]
     a, b, c = norm_basis
     ab_cross = np.cross(a, b)
@@ -955,6 +961,7 @@ def _get_threejs_data(
         "unitCell": {"points": _get_unit_cell(structure.lattice.matrix)},
         "normBasis": norm_basis,
         "basis": basis,
+        "recipBasis": recip_basis,
         "viewData": view_info,
         "centerShift": _three_flip((-1 * center_shift).tolist()),
         "additionalProps": additionalProps,
@@ -1339,24 +1346,27 @@ def _optimize_interface_all(
     film_structure = Structure.from_dict(film_bulk)
     substrate_structure = Structure.from_dict(substrate_bulk)
 
-    iface_search = IonicInterfaceSearch(
-        substrate_bulk=substrate_structure,
-        film_bulk=film_structure,
-        substrate_miller_index=substrate_miller_index,
-        film_miller_index=film_miller_index,
-        minimum_slab_thickness=10.0,
-        vacuum=13.0,
-        max_strain=max_strain,
-        max_area=max_area,
-        n_particles_PSO=15,
-        max_iterations_PSO=75,
-        app_mode=True,
-        dpi=100,
-        verbose=False,
-        use_most_stable_substrate=use_most_stable_substrate,
-    )
+    try:
+        iface_search = IonicInterfaceSearch(
+            substrate_bulk=substrate_structure,
+            film_bulk=film_structure,
+            substrate_miller_index=substrate_miller_index,
+            film_miller_index=film_miller_index,
+            minimum_slab_thickness=10.0,
+            vacuum=40.0,
+            max_strain=max_strain,
+            max_area=max_area,
+            n_particles_PSO=20,
+            max_iterations_PSO=100,
+            app_mode=True,
+            dpi=100,
+            verbose=False,
+            use_most_stable_substrate=use_most_stable_substrate,
+        )
 
-    return_data = iface_search.run_interface_search(filter_on_charge=True)
+        return_data = iface_search.run_interface_search(filter_on_charge=True)
+    except TolarenceError:
+        return_data = "TolarenceError"
 
     return return_data
 
@@ -1454,6 +1464,35 @@ def _optimize_interface(
     return shrunk_iface.as_dict(), shrunk_small_iface.as_dict()
 
 
+def load_structure_from_str(contents: str, file_name: str):
+    if fnmatch(file_name.lower(), "*.cif*") or fnmatch(
+        file_name.lower(), "*.mcif*"
+    ):
+        return Structure.from_str(contents, fmt="cif")
+    if (
+        fnmatch(file_name, "*POSCAR*")
+        or fnmatch(file_name, "*CONTCAR*")
+        or fnmatch(file_name, "*.vasp")
+    ):
+        return Structure.from_str(contents, fmt="poscar")
+    elif fnmatch(file_name.lower(), "*.cssr*"):
+        return Structure.from_str(contents, fmt="cssr")
+    elif fnmatch(file_name, "*.json*") or fnmatch(file_name, "*.mson*"):
+        return Structure.from_str(contents, fmt="json")
+    elif fnmatch(file_name, "*.yaml*") or fnmatch(file_name, "*.yml*"):
+        return Structure.from_str(contents, fmt="yaml")
+    elif fnmatch(file_name, "*.xsf"):
+        return Structure.from_str(contents, fmt="xsf")
+    elif (
+        fnmatch(file_name, "*rndstr.in*")
+        or fnmatch(file_name, "*lat.in*")
+        or fnmatch(file_name, "*bestsqs*")
+    ):
+        return Structure.from_str(contents, fmt="mcsqs")
+    else:
+        raise ValueError("Unrecognized file extension!")
+
+
 """
 --------------------------- REST CALLS -----------------------------
 """
@@ -1473,9 +1512,14 @@ def example():
 @cross_origin(supports_credentials=False)
 def substrate_file_upload():
     film_file = request.files["filmFile"]
+    film_file_name = film_file.filename
     substrate_file = request.files["substrateFile"]
+    substrate_file_name = substrate_file.filename
     film_file.headers.add("Access-Control-Allow-Origin", "*")
     substrate_file.headers.add("Access-Control-Allow-Origin", "*")
+
+    print(film_file_name)
+    print(substrate_file_name)
 
     with film_file.stream as film_f:
         film_file_contents = film_f.read().decode()
@@ -1483,44 +1527,34 @@ def substrate_file_upload():
     with substrate_file.stream as substrate_f:
         substrate_file_contents = substrate_f.read().decode()
 
-    film_struc = Structure.from_str(film_file_contents, fmt="cif")
+    # film_struc = Structure.from_str(film_file_contents, fmt="cif")
+    film_struc = load_structure_from_str(
+        contents=film_file_contents,
+        file_name=film_file_name,
+    )
     film_formula = film_struc.composition.reduced_formula
-    # film_formula_comp = _get_formatted_formula(film_formula)
     film_sg = SpacegroupAnalyzer(structure=film_struc)
     film_sg_symbol = film_sg.get_space_group_symbol()
-    # film_sg_comp = _get_formatted_spacegroup(film_sg_symbol)
-    # film_label = (
-    #     [["span", {}, "Film: "]]
-    #     + film_formula_comp
-    #     + [["span", {}, " ("]]
-    #     + film_sg_comp
-    #     + [["span", {}, ")"]]
-    # )
 
-    substrate_struc = Structure.from_str(substrate_file_contents, fmt="cif")
+    # substrate_struc = Structure.from_str(substrate_file_contents, fmt="cif")
+    substrate_struc = load_structure_from_str(
+        contents=substrate_file_contents,
+        file_name=substrate_file_name,
+    )
     substrate_formula = substrate_struc.composition.reduced_formula
-    # substrate_formula_comp = _get_formatted_formula(substrate_formula)
     substrate_sg = SpacegroupAnalyzer(structure=substrate_struc)
     substrate_sg_symbol = substrate_sg.get_space_group_symbol()
-    # substrate_sg_comp = _get_formatted_spacegroup(substrate_sg_symbol)
-    # substrate_label = (
-    #     [["span", {}, "Substrate: "]]
-    #     + substrate_formula_comp
-    #     + [["span", {}, " ("]]
-    #     + substrate_sg_comp
-    #     + [["span", {}, ")"]]
-    # )
 
     return jsonify(
         {
             "film": film_struc.as_dict(),
             "filmFormula": film_formula,
             "filmSpaceGroup": film_sg_symbol,
-            # "filmLabel": film_label,
+            "filmOrdered": film_struc.is_ordered,
             "substrate": substrate_struc.as_dict(),
             "substrateFormula": substrate_formula,
             "substrateSpaceGroup": substrate_sg_symbol,
-            # "substrateLabel": substrate_label,
+            "substrateOrdered": substrate_struc.is_ordered,
         }
     )
 
@@ -1746,8 +1780,10 @@ def miller_scan():
     )
     print("TOTAL TIME =", time.time() - s)
 
-    return jsonify(
-        {
+    if len(match_list) == 0:
+        return_data = "TolarenceError"
+    else:
+        return_data = {
             "matchList": match_list,
             "totalImgData": total_plot_img_data,
             "totalImgAspectRatio": total_plot_aspect_ratio,
@@ -1756,7 +1792,8 @@ def miller_scan():
             "maxArea": data["maxArea"],
             "maxStrain": data["maxStrain"],
         }
-    )
+
+    return jsonify(return_data)
 
 
 """

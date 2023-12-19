@@ -8,6 +8,8 @@ const useMillerStore = create((set) => ({
     matchList: [],
     totalMatchImgData: "",
     totalMatchAspectRatio: "auto",
+    tolarenceError: false,
+    setTolarenceError: () => set({tolarenceError: true}),
     resetMiller: () => set({
         maxFilmIndex: "",
         maxSubstrateIndex: "",
@@ -16,6 +18,7 @@ const useMillerStore = create((set) => ({
         matchList: [],
         totalMatchFigure: "",
         totalMatchAspectRatio: "auto",
+        tolarenceError: false,
     }),
     setMaxFilmIndex: (value) => set({maxFilmIndex: value}),
     setMaxSubstrateIndex: (value) => set({maxSubstrateIndex: value}),

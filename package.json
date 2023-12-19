@@ -1,7 +1,7 @@
 {
   "name": "ogreinterface-app",
   "productName": "ogreinterface-app",
-  "version": "0.0.12",
+  "version": "0.0.13",
   "description": "My Electron application description",
   "main": ".vite/build/main.js",
   "scripts": {
@@ -55,6 +55,7 @@
     "tailwindcss-patterns": "^0.1.2",
     "three": "^0.157.0",
     "tree-kill": "^1.2.2",
+    "update-electron-app": "^3.0.0",
     "zustand": "^4.4.6"
   }
 }

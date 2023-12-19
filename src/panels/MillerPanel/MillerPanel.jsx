@@ -4,6 +4,7 @@ import uuid from "react-uuid";
 import useMillerStore from "../../stores/millerStore.js";
 import useBulkStore from "../../stores/bulkStore.js";
 import { getFormattedMillerIndex } from "../../utils/makeLabel.jsx";
+import ErrorPanel from "../ErrorPanel/ErrorPanel.jsx";
 
 const { ipcRenderer } = window;
 const port = ipcRenderer.sendSync("get-port-number");
@@ -181,6 +182,8 @@ function MillerPanel() {
 		setTotalMatchAspectRatio,
 		setTotalMatchImgData,
 		resetMiller,
+		tolarenceError,
+		setTolarenceError,
 	} = useMillerStore();
 	console.log(matchList);
 	console.log(maxArea);
@@ -212,17 +215,22 @@ function MillerPanel() {
 				if (!res.ok) {
 					throw new Error("Bad Response");
 				}
+				setLoading(false);
 				return res.json();
 			})
 			.then((data) => {
-				setMaxArea(data.maxArea);
-				setMaxStrain(data.maxStrain);
-				setMaxSubstrateIndex(data.maxSubstrateIndex);
-				setMaxFilmIndex(data.maxFilmIndex);
-				setMatchList(data.matchList);
-				setTotalMatchImgData(data.totalImgData);
-				setTotalMatchAspectRatio(data.totalImgAspectRatio);
-				setLoading(false);
+				if (data === "TolarenceError") {
+					console.log("TOLARENCE ERROR MILLER !!");
+					setTolarenceError();
+				} else {
+					setMaxArea(data.maxArea);
+					setMaxStrain(data.maxStrain);
+					setMaxSubstrateIndex(data.maxSubstrateIndex);
+					setMaxFilmIndex(data.maxFilmIndex);
+					setMatchList(data.matchList);
+					setTotalMatchImgData(data.totalImgData);
+					setTotalMatchAspectRatio(data.totalImgAspectRatio);
+				}
 			})
 			.catch((err) => {
 				console.error(err);
@@ -311,21 +319,25 @@ function MillerPanel() {
 				</BaseCard>
 			</div>
 			<div className='md:col-span-2'>
-				<BaseCard>
-					<MillerTable
-						totalMatchImgData={totalMatchImgData}
-						totalMatchAspectRatio={totalMatchAspectRatio}
-					>
-						{tableRows}
-					</MillerTable>
-					{loading ? (
-						<div className='flex items-center justify-center w-[100%] mt-4'>
-							<span className='loading loading-bars loading-lg'></span>
-						</div>
-					) : (
-						<></>
-					)}
-				</BaseCard>
+				{tolarenceError ? (
+					<ErrorPanel title={"!!! No Interfaces Found !!!"} message={"No interfaces were found for any set of miller indices. Try increasing the max strain/max area"} />
+				) : (
+					<BaseCard>
+						<MillerTable
+							totalMatchImgData={totalMatchImgData}
+							totalMatchAspectRatio={totalMatchAspectRatio}
+						>
+							{tableRows}
+						</MillerTable>
+						{loading ? (
+							<div className='flex items-center justify-center w-[100%] mt-4'>
+								<span className='loading loading-bars loading-lg'></span>
+							</div>
+						) : (
+							<></>
+						)}
+					</BaseCard>
+				)}
 			</div>
 		</>
 	);

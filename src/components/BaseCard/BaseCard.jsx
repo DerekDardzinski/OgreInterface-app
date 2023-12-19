@@ -1,10 +1,10 @@
 import React from 'react'
 
-function BaseCard(props) {
+function BaseCard({children, color}) {
 
   return (
-    <div className={`${props.color} p-4 rounded-xl shadow-lg shadow-base-300 hover:shadow-base-300 hover:shadow-xl outline outline-1 outline-base-content`}>
-        {props.children}
+    <div className={`${color} p-4 rounded-xl shadow-lg shadow-base-300 hover:shadow-base-300 hover:shadow-xl outline outline-1 outline-base-content`}>
+        {children}
     </div>
   )
 
@@ -12,6 +12,7 @@ function BaseCard(props) {
 
 BaseCard.defaultProps = {
     aspect: 'aspect-square',
+    color: "bg-base-100"
 }
 
 export default BaseCard
