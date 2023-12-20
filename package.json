@@ -1,7 +1,7 @@
 {
   "name": "ogreinterface-app",
   "productName": "ogreinterface-app",
-  "version": "0.0.13",
+  "version": "0.0.14",
   "description": "My Electron application description",
   "repository": {
     "type": "git",
