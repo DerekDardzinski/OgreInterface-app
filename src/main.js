@@ -7,12 +7,6 @@ var portfinder = require('portfinder');
 // import getPort, {portNumbers} from "get-port";
 // var syncPort = deasync(getPort)
 
-const { updateElectronApp } = require('update-electron-app')
-
-if (app.isPackaged) {
-  updateElectronApp()
-}
-
 let pythonServerKilled = false;
 let pythonServer;
 // void async function () {
